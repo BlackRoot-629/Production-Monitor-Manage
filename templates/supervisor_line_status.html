@@ -82,6 +82,13 @@ h1 {
         rgba(0,0,0,.25);
 }
 
+.stop-reason {
+    margin-top: 12px;
+    color: #fca5a5;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 
 .status {
 
@@ -154,6 +161,8 @@ button {
 
 </style>
 
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+
 </head>
 
 
@@ -177,6 +186,8 @@ button {
         >
             Loading...
         </div>
+
+        <div id="stopReason" class="stop-reason" style="display:none"></div>
 
     </div>
 
@@ -256,10 +267,32 @@ async function loadStatus() {
                 : "stopped"
         );
 
+    const stopReason = document.getElementById("stopReason");
+    if (line.status === "STOPPED" && line.stop_reason) {
+        stopReason.textContent = `Stop reason: ${line.stop_reason}`;
+        stopReason.style.display = "block";
+    } else {
+        stopReason.textContent = "";
+        stopReason.style.display = "none";
+    }
+
 }
 
 
 async function changeStatus(newStatus) {
+
+    let reason = null;
+    if (newStatus === "STOPPED") {
+        reason = window.prompt("Enter the reason for stopping this line:");
+        if (reason === null) {
+            return;
+        }
+        reason = reason.trim();
+        if (!reason) {
+            alert("A stop reason is required.");
+            return;
+        }
+    }
 
     const response =
         await fetch(
@@ -273,7 +306,8 @@ async function changeStatus(newStatus) {
                 },
 
                 body: JSON.stringify({
-                    status: newStatus
+                    status: newStatus,
+                    reason
                 })
             }
         );

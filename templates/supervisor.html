@@ -423,6 +423,19 @@ body{
         transform: translateY(0);
     }
 
+    .break-times-card {
+        width: 100%;
+        margin: 20px auto;
+        padding: 22px;
+        border: 1px solid rgba(70,160,255,.25);
+        border-radius: 18px;
+        background: linear-gradient(145deg, #1e293b, #0f172a);
+    }
+    .break-times-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .break-times-field { display:flex; flex-direction:column; gap:8px; color:#b9cce2; }
+    .break-times-field input { padding:13px; border:1px solid #35506e; border-radius:9px; background:#0b1728; color:#fff; font-size:18px; }
+    #breakTimesMessage { min-height:20px; margin-top:10px; color:#75e5ad; text-align:center; }
+
 
     /* موبایل */
     @media (max-width: 700px) {
@@ -437,6 +450,8 @@ body{
     }
 
 </style>
+
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
 
 </head>
 
@@ -755,6 +770,22 @@ body{
 
     </div>
 
+    <div class="break-times-card">
+        <div class="products-header">
+            <div class="products-header-icon">☕</div>
+            <div class="products-header-text">
+                <h2>Line Break Times</h2>
+                <p>Set Tea Time and Lunch Time for Line {{ line_id }}</p>
+            </div>
+        </div>
+        <div class="break-times-grid">
+            <label class="break-times-field">Tea Time<input type="time" id="teaTime"></label>
+            <label class="break-times-field">Lunch Time<input type="time" id="lunchTime"></label>
+        </div>
+        <button class="product-save-btn" onclick="saveBreakTimes()">💾 &nbsp; SAVE BREAK TIMES</button>
+        <div id="breakTimesMessage"></div>
+    </div>
+
 <script>
 
 function updateClock(){
@@ -806,6 +837,44 @@ async function loadProducts() {
     } catch (error) {
         console.error(error);
     }
+}
+
+async function loadBreakTimes() {
+    const username = sessionStorage.getItem("workflow_username") || "";
+    if (!username) {
+        document.getElementById("breakTimesMessage").textContent = "Supervisor session missing. Please log in again.";
+        return;
+    }
+    try {
+        const response = await fetch(`/api/supervisor/break-times/{{ line_id }}?username=${encodeURIComponent(username)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Could not load break times");
+        document.getElementById("teaTime").value = data.tea_time || "";
+        document.getElementById("lunchTime").value = data.lunch_time || "";
+    } catch (error) {
+        document.getElementById("breakTimesMessage").textContent = error.message;
+    }
+}
+
+async function saveBreakTimes() {
+    const username = sessionStorage.getItem("workflow_username") || "";
+    if (!username) {
+        document.getElementById("breakTimesMessage").textContent = "Supervisor session missing. Please log in again.";
+        return;
+    }
+    const response = await fetch(`/api/supervisor/break-times/{{ line_id }}`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            username,
+            tea_time: document.getElementById("teaTime").value || null,
+            lunch_time: document.getElementById("lunchTime").value || null
+        })
+    });
+    const data = await response.json();
+    document.getElementById("breakTimesMessage").textContent = response.ok
+        ? "Break times saved for this line."
+        : (data.detail || "Could not save break times.");
 }
 
 
@@ -876,6 +945,7 @@ async function savePackProduct() {
 
 
 loadProducts();
+loadBreakTimes();
 
 </script>
 

@@ -8,11 +8,12 @@ from models import Serial, OrderCode
 from schemas import SerialCreate
 
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 
 from schemas import StopCreate
 from models import LineStop
 from models import SwitchLog
-from services import calculate_expected_count
+from services import calculate_expected_count, validate_repair_transition
 from models import User
 from schemas import LoginRequest
 from schemas import OrderCodeCreate
@@ -20,16 +21,22 @@ from schemas import UserCreate, UserUpdate
 from schemas import SerialUpdate
 from schemas import AssemblyScanCreate
 from schemas import AssemblyStatusCreate
+from schemas import RepairWorkflowAction, QualityControlReview
 from models import Assembly
-from models import AssemblyHistory
+from models import AssemblyHistory, AssemblyWorkflowHistory
 from models import Line
 from schemas import LineStatusUpdate
 from schemas import ProductNameUpdate
+from schemas import LineBreakTimesUpdate
 
 from pydantic import BaseModel
 
 import jdatetime
 from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
+from io import BytesIO
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from export_all_excel import export_all_production
 from export_excel import export_production
 from export_assemble_all import TodayAssemblyHistory
@@ -37,12 +44,15 @@ from export_today_assemble import TodayAssemble
 
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from fastapi import Request
 from fastapi import Query
 from fastapi import HTTPException
 
 from datetime import datetime
-from datetime import date
+from datetime import date, timedelta
+import json
+import time
 from sqlalchemy import and_
 from sqlalchemy.orm import aliased
 from schemas import (
@@ -56,8 +66,10 @@ from schemas import (
     AttendanceAssign,
     AdminStationCreate,
     AdminStationStatus,
-    LeaveCreate
+    LeaveCreate,
+    AdminLeaveCreate
 )
+from schemas import RepairWorkflowAction, QualityControlReview
 from models import (
     Employee,
     Station,
@@ -73,6 +85,7 @@ from fastapi.templating import Jinja2Templates
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 templates = Jinja2Templates(
@@ -101,7 +114,31 @@ def create_serial(data: SerialCreate):
 
     try:
 
-        order_code = data.order_number.split("-")[1]
+        order_number = data.order_number.strip()
+        serial_number = data.serial_number.strip()
+        parts = order_number.split("-")
+
+        if len(parts) != 3 or len(parts[1]) != 4 or not parts[1].isdigit():
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid order number"
+            )
+
+        if not serial_number:
+            raise HTTPException(
+                status_code=400,
+                detail="Serial number is required"
+            )
+
+        if not db.query(Line.id).filter(
+            Line.id == data.line_id
+        ).first():
+            raise HTTPException(
+                status_code=404,
+                detail="Production line not found"
+            )
+
+        order_code = parts[1]
 
         product = db.query(OrderCode).filter(
             OrderCode.order_code == order_code
@@ -114,7 +151,7 @@ def create_serial(data: SerialCreate):
             }
 
         existing = db.query(Serial).filter(
-            Serial.serial_number == data.serial_number
+            Serial.serial_number == serial_number
         ).first()
 
         if existing:
@@ -126,9 +163,9 @@ def create_serial(data: SerialCreate):
 
             line_id=data.line_id,
 
-            serial_number=data.serial_number,
+            serial_number=serial_number,
 
-            order_number=data.order_number,
+            order_number=order_number,
 
             order_code=order_code,
 
@@ -143,6 +180,9 @@ def create_serial(data: SerialCreate):
         return {
             "message": "Saved"
         }
+
+    except HTTPException:
+        raise
 
     except Exception as ex:
 
@@ -240,6 +280,44 @@ def monitor(
         }
     )
 
+def _line_stop_minutes_for_today(db, line_id, now=None):
+    now = now or datetime.now()
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    stops = db.query(LineStop).filter(
+        LineStop.line_id == line_id,
+        LineStop.stop_minutes > 0,
+        or_(
+            LineStop.created_at >= day_start,
+            LineStop.ended_at >= day_start
+        )
+    ).all()
+
+    completed_minutes = 0
+    for stop in stops:
+        if stop.ended_at:
+            segment_start = max(stop.created_at, day_start)
+            elapsed_seconds = max(0, (stop.ended_at - segment_start).total_seconds())
+            if elapsed_seconds:
+                completed_minutes += int((elapsed_seconds + 59) // 60)
+        else:
+            completed_minutes += int(stop.stop_minutes or 0)
+
+    line = db.query(Line).filter(Line.id == line_id).first()
+    active_minutes = 0
+    if line and line.status == "STOPPED":
+        open_stop = db.query(LineStop).filter(
+            LineStop.line_id == line_id,
+            LineStop.stop_minutes == 0
+        ).order_by(LineStop.created_at.desc()).first()
+        if open_stop:
+            active_start = max(open_stop.created_at, day_start)
+            elapsed_seconds = max(0, (now - active_start).total_seconds())
+            if elapsed_seconds:
+                active_minutes = int((elapsed_seconds + 59) // 60)
+
+    return int(completed_minutes or 0) + active_minutes
+
+
 @app.get("/api/monitor/{line_id}")
 
 
@@ -259,15 +337,17 @@ def get_monitor(line_id: int):
     db = SessionLocal()
 
     try:
-        stop_minutes = db.query(
-        func.coalesce(
-            func.sum(LineStop.stop_minutes),
-            0
-        )
-        ).filter(
-            LineStop.line_id == line_id,
-            LineStop.created_at >= today
-        ).scalar()
+        line = db.query(Line).filter(
+            Line.id == line_id
+        ).first()
+
+        if not line:
+            raise HTTPException(
+                status_code=404,
+                detail="Production line not found"
+            )
+
+        stop_minutes = _line_stop_minutes_for_today(db, line_id)
 
         switch_count = db.query(
             func.count()
@@ -312,25 +392,11 @@ def get_monitor(line_id: int):
             Serial.created_at >= today
         ).scalar()
 
-        aio_equivalent = (
-
-            aio
-
-            + (mnt * 0.60)
-
-            + (case * 0.80)
-
-            + nb
-
-        )
+        aio_equivalent = aio + (mnt * 0.60) + (case * 0.80) + nb
 
         difference = aio_equivalent - expected_count
 
         production_score = actual_count
-
-        line = db.query(Line).filter(
-            Line.id == line_id
-        ).first()
 
         return {
 
@@ -343,7 +409,7 @@ def get_monitor(line_id: int):
             "nb": nb,
 
             "aio_equivalent": int(aio_equivalent),
-            
+
             "actual_count": actual_count,
 
             "expected_count": expected_count,
@@ -357,6 +423,8 @@ def get_monitor(line_id: int):
             "production_score": production_score,
 
             "product_name": line.pack_product_name or "",
+            "tea_time": line.tea_time.strftime("%H:%M") if line.tea_time else None,
+            "lunch_time": line.lunch_time.strftime("%H:%M") if line.lunch_time else None,
 
         }
 
@@ -370,6 +438,20 @@ def add_stop(data: StopCreate):
     db = SessionLocal()
 
     try:
+
+        if data.stop_minutes <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Stop minutes must be greater than zero"
+            )
+
+        if not db.query(Line.id).filter(
+            Line.id == data.line_id
+        ).first():
+            raise HTTPException(
+                status_code=404,
+                detail="Production line not found"
+            )
 
         stop = LineStop(
 
@@ -387,6 +469,10 @@ def add_stop(data: StopCreate):
             "message": "Stop Saved"
         }
 
+    except HTTPException:
+        db.rollback()
+        raise
+
     finally:
 
         db.close()
@@ -403,16 +489,24 @@ def use_switch(line_id: int):
 
     try:
 
+        if not db.query(Line.id).filter(
+            Line.id == line_id
+        ).first():
+            raise HTTPException(
+                status_code=404,
+                detail="Production line not found"
+            )
+
         count = db.query(func.count()).filter(
             SwitchLog.line_id == line_id,
             SwitchLog.created_at >= today
         ).scalar()
 
         if count >= 2:
-
-            return {
-                "error": "Maximum usage reached"
-            }
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum usage reached"
+            )
 
         switch = SwitchLog(
 
@@ -427,6 +521,10 @@ def use_switch(line_id: int):
         return {
             "message": "Switch Saved"
         }
+
+    except HTTPException:
+        db.rollback()
+        raise
 
     finally:
 
@@ -461,11 +559,10 @@ def login(data: LoginRequest):
         ).first()
 
         if not user:
-
-            return {
-                "error":
-                "Invalid Username Or Password"
-            }
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid username or password"
+            )
 
         return {
 
@@ -506,11 +603,25 @@ def add_ordercode(data: OrderCodeCreate):
 
     try:
 
+        order_code = data.order_code.strip()
+        product_type = data.product_type.strip().upper()
+        if not order_code or len(order_code) > 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Order code must contain 1 to 10 characters"
+            )
+
+        if not product_type or len(product_type) > 20:
+            raise HTTPException(
+                status_code=400,
+                detail="Product type must contain 1 to 20 characters"
+            )
+
         existing = db.query(
             OrderCode
         ).filter(
             OrderCode.order_code ==
-            data.order_code
+            order_code
         ).first()
 
         if existing:
@@ -522,9 +633,9 @@ def add_ordercode(data: OrderCodeCreate):
 
         item = OrderCode(
 
-            order_code=data.order_code,
+            order_code=order_code,
 
-            product_type=data.product_type
+            product_type=product_type
 
         )
 
@@ -536,6 +647,10 @@ def add_ordercode(data: OrderCodeCreate):
             "message":
             "Saved"
         }
+
+    except HTTPException:
+        db.rollback()
+        raise
 
     finally:
 
@@ -690,6 +805,7 @@ def admin_page(request: Request):
 
     )
 
+
 @app.get("/api/users")
 def get_users():
 
@@ -734,12 +850,38 @@ def create_user(
 
     try:
 
+        username = data.username.strip()
+        allowed_roles = {
+            "admin", "dashboard", "operator", "supervisor", "ordercode", "technician", "qc"
+        }
+        if not username or not data.password:
+            raise HTTPException(
+                status_code=400,
+                detail="Username and password are required"
+            )
+        if data.role not in allowed_roles:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid user role"
+            )
+        if data.role in {"operator", "supervisor"} and data.line_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="A production line is required for this role"
+            )
+        if data.line_id is not None and data.role in {"operator", "supervisor"} and not db.query(Line.id).filter(
+            Line.id == data.line_id
+        ).first():
+            raise HTTPException(
+                status_code=404,
+                detail="Production line not found"
+            )
+
         exists = db.query(
             User
         ).filter(
 
-            User.username ==
-            data.username
+            User.username == username
 
         ).first()
 
@@ -754,7 +896,7 @@ def create_user(
 
         user = User(
 
-            username=data.username,
+            username=username,
 
             password=data.password,
 
@@ -774,6 +916,10 @@ def create_user(
             "User Created"
 
         }
+
+    except HTTPException:
+        db.rollback()
+        raise
 
     finally:
 
@@ -812,6 +958,16 @@ def delete_user(user_id: int):
 
             }
 
+        if user.role == "technician" and db.query(Assembly.id).filter(
+            Assembly.assigned_technician == user.username,
+            Assembly.repair_stage.in_(
+                ["REPAIR_QUEUE", "IN_REPAIR", "QC_QUEUE", "EXIT_QUEUE"]
+            )
+        ).first():
+            return {
+                "error": "Technician has open repair cases and cannot be deleted"
+            }
+
         db.delete(user)
 
         db.commit()
@@ -836,6 +992,27 @@ def update_user(
     db = SessionLocal()
 
     try:
+
+        allowed_roles = {
+            "admin", "dashboard", "operator", "supervisor", "ordercode", "technician", "qc"
+        }
+        if data.role not in allowed_roles:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid user role"
+            )
+        if data.role in {"operator", "supervisor"} and data.line_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="A production line is required for this role"
+            )
+        if data.line_id is not None and data.role in {"operator", "supervisor"} and not db.query(Line.id).filter(
+            Line.id == data.line_id
+        ).first():
+            raise HTTPException(
+                status_code=404,
+                detail="Production line not found"
+            )
 
         user = db.query(
             User
@@ -863,6 +1040,20 @@ def update_user(
 
             }
 
+        if (
+            user.role == "technician"
+            and data.role != "technician"
+            and db.query(Assembly.id).filter(
+                Assembly.assigned_technician == user.username,
+                Assembly.repair_stage.in_(
+                    ["REPAIR_QUEUE", "IN_REPAIR", "QC_QUEUE", "EXIT_QUEUE"]
+                )
+            ).first()
+        ):
+            return {
+                "error": "Technician has open repair cases and cannot change role"
+            }
+
         user.role = data.role
 
         user.line_id = data.line_id
@@ -875,6 +1066,10 @@ def update_user(
             "User Updated"
 
         }
+
+    except HTTPException:
+        db.rollback()
+        raise
 
     finally:
 
@@ -936,6 +1131,115 @@ def export_excel():
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
     )
+
+
+def _format_export_solar_datetime(value):
+    if not value:
+        return "Not found"
+    return jdatetime.datetime.fromgregorian(datetime=value).strftime("%Y/%m/%d %H:%M:%S")
+
+
+def _stream_workbook(workbook, filename):
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+def _style_export_sheet(sheet, widths):
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for cell in sheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1F4E78")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+    for column, width in widths.items():
+        sheet.column_dimensions[column].width = width
+    for row in sheet.iter_rows(min_row=2):
+        for cell in row:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+
+@app.get("/api/export/line-stops")
+def export_line_stops(admin_username: str):
+    db = SessionLocal()
+    try:
+        verify_admin(db, admin_username)
+        records = db.query(LineStop, Line.name).outerjoin(
+            Line, Line.id == LineStop.line_id
+        ).order_by(LineStop.created_at.desc(), LineStop.id.desc()).all()
+        now = datetime.now()
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Line Stops"
+        sheet.append([
+            "Production Line", "Stop Reason", "Start Date & Time",
+            "End Date & Time", "Duration (Minutes)", "Status"
+        ])
+        for stop, line_name in records:
+            duration = int(stop.stop_minutes or 0)
+            if duration == 0 and stop.ended_at is None:
+                seconds = max(0, (now - stop.created_at).total_seconds())
+                duration = int((seconds + 59) // 60) if seconds else 0
+                status = "IN PROGRESS"
+            elif stop.ended_at:
+                status = "COMPLETED"
+            else:
+                status = "MANUAL ENTRY"
+            sheet.append([
+                line_name or f"Line {stop.line_id}",
+                stop.reason or "Not found",
+                _format_export_solar_datetime(stop.created_at),
+                _format_export_solar_datetime(stop.ended_at),
+                duration,
+                status
+            ])
+        _style_export_sheet(sheet, {"A": 22, "B": 42, "C": 24, "D": 24, "E": 22, "F": 18})
+        return _stream_workbook(workbook, "Line_Stop_Report.xlsx")
+    finally:
+        db.close()
+
+
+@app.get("/api/export/repair-dashboard")
+def export_repair_dashboard(admin_username: str):
+    report = admin_repair_dashboard(admin_username=admin_username)
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Repair Timeline"
+    sheet.append([
+        "Serial Number", "Production Line", "Repair Queue Time",
+        "Repair Started Time", "QC Time", "Exit Queue Time", "Returned to Line Time"
+    ])
+
+    time_columns = (
+        "repair_queue_times", "repair_started_times", "sent_to_qc_times",
+        "exit_queue_times", "returned_to_line_times"
+    )
+    for serial in report.get("serials", []):
+        values = [serial.get("serial_number") or "Not found", serial.get("line_name") or "Not found"]
+        for key in time_columns:
+            timestamps = serial.get(key) or []
+            if not timestamps:
+                values.append("Not found")
+                continue
+            formatted = []
+            for timestamp in timestamps:
+                try:
+                    parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                    if parsed.tzinfo is not None:
+                        parsed = parsed.astimezone().replace(tzinfo=None)
+                    formatted.append(_format_export_solar_datetime(parsed))
+                except (TypeError, ValueError):
+                    formatted.append("Not found")
+            values.append("\n".join(formatted) or "Not found")
+        sheet.append(values)
+
+    _style_export_sheet(sheet, {"A": 24, "B": 22, "C": 25, "D": 25, "E": 25, "F": 25, "G": 28})
+    return _stream_workbook(workbook, "Repair_Serial_Timeline.xlsx")
 
 @app.get("/api/ordercodes")
 def get_ordercodes():
@@ -1237,10 +1541,22 @@ def assembly_scan(data: AssemblyScanCreate):
 
         parts = serial_number.split("-")
 
-        if len(parts) != 3:
+        if (
+            len(parts) != 3
+            or len(parts[1]) != 4
+            or not parts[1].isdigit()
+        ):
             return {
                 "error": "Invalid Serial Number"
             }
+
+        if not db.query(Line.id).filter(
+            Line.id == data.line_id
+        ).first():
+            raise HTTPException(
+                status_code=404,
+                detail="Production line not found"
+            )
 
         # -----------------------------
         # Extract Order Number
@@ -1273,9 +1589,13 @@ def assembly_scan(data: AssemblyScanCreate):
         # -----------------------------
 
         assembly = db.query(Assembly).filter(
-            Assembly.line_id == data.line_id,
             Assembly.serial_number == serial_number
-        ).first()
+        ).order_by(Assembly.id.desc()).first()
+        if assembly and assembly.origin_line_id != data.line_id:
+            raise HTTPException(
+                status_code=403,
+                detail=f"This serial belongs to assembly line {assembly.origin_line_id}"
+            )
 
         # -----------------------------
         # New Serial
@@ -1301,8 +1621,14 @@ def assembly_scan(data: AssemblyScanCreate):
             "order_number": order_number,
             "product_type": product_type,
             "current_status": assembly.status,
-            "repair_reason": assembly.repair_reason
+            "repair_reason": assembly.repair_reason,
+            "repair_stage": assembly.repair_stage,
+            "assigned_technician": assembly.assigned_technician,
+            "origin_line_id": assembly.origin_line_id
         }
+
+    except HTTPException:
+        raise
 
     except Exception as ex:
 
@@ -1313,6 +1639,33 @@ def assembly_scan(data: AssemblyScanCreate):
     finally:
 
         db.close()
+
+@app.get("/repair")
+def repair_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="repair_workflow.html",
+        context={"workflow_role": "technician"}
+    )
+
+
+@app.get("/qc")
+def qc_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="repair_workflow.html",
+        context={"workflow_role": "qc"}
+    )
+
+
+@app.get("/repair/monitor")
+def repair_monitor_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="repair_monitor.html",
+        context={}
+    )
+
 
 @app.get("/assembly/{line_id}")
 def assembly_page(request: Request, line_id: int):
@@ -1328,189 +1681,528 @@ def assembly_page(request: Request, line_id: int):
 
 @app.post("/api/assembly/status")
 def assembly_status(data: AssemblyStatusCreate):
-
     db = SessionLocal()
 
     try:
-
         serial_number = data.serial_number.strip()
         status = data.status.strip().upper()
-
-        # فقط دو وضعیت مجاز هستند
-        if status not in ["OK", "REPAIR"]:
-            return {
-                "error": "Invalid Status"
-            }
-
-        # پیدا کردن Order Code از روی Serial
+        if status not in {"OK", "REPAIR"}:
+            raise HTTPException(status_code=400, detail="Invalid Status")
         parts = serial_number.split("-")
+        if len(parts) != 3 or len(parts[1]) != 4 or not parts[1].isdigit():
+            raise HTTPException(status_code=400, detail="Invalid Serial Number")
+        repair_reason = (data.repair_reason or "").strip()
+        if status == "REPAIR" and not repair_reason:
+            raise HTTPException(status_code=400, detail="Repair Reason Required")
 
-        if len(parts) != 3:
-            return {
-                "error": "Invalid Serial Number"
-            }
-
+        if not db.query(Line.id).filter(Line.id == data.line_id).first():
+            raise HTTPException(status_code=404, detail="Production line not found")
         order_number = parts[1]
-
-        # پیدا کردن Product Type
         order_item = db.query(OrderCode).filter(
             OrderCode.order_code == order_number
         ).first()
-
         if not order_item:
-            return {
-                "error": "Order Code Not Found"
-            }
+            raise HTTPException(status_code=404, detail="Order Code Not Found")
 
-        product_type = order_item.product_type
-
-        # پیدا کردن رکورد قبلی همین سریال در همین خط
         assembly = db.query(Assembly).filter(
-            Assembly.line_id == data.line_id,
             Assembly.serial_number == serial_number
-        ).first()
+        ).order_by(Assembly.id.desc()).with_for_update().first()
+        if assembly and assembly.origin_line_id != data.line_id:
+            raise HTTPException(
+                status_code=403,
+                detail=f"This serial must be closed at its original assembly line {assembly.origin_line_id}"
+            )
+        now = datetime.now()
+        station_actor = f"assembly-line:{data.line_id}"
 
-        # اگر محصول قبلاً وجود ندارد
-        if not assembly:
-
-            # برای REPAIR باید علت وارد شود
-            if status == "REPAIR" and not data.repair_reason:
-                return {
-                    "error": "Repair Reason Required"
-                }
-
+        if assembly is None:
+            if status == "OK":
+                initial_status = "OK"
+                stage = None
+            else:
+                initial_status = "REPAIR"
+                stage = "REPAIR_QUEUE"
             assembly = Assembly(
                 line_id=data.line_id,
+                origin_line_id=data.line_id,
                 serial_number=serial_number,
                 order_number=order_number,
-                product_type=product_type,
-                status=status,
-                repair_reason=data.repair_reason
+                product_type=order_item.product_type,
+                status=initial_status,
+                repair_reason=repair_reason or None,
+                repair_stage=stage,
+                qc_return_count=0,
+                workflow_created_at=now if stage else None
             )
-
             db.add(assembly)
-            db.commit()
-            db.refresh(assembly)
-
-            history = AssemblyHistory(
+            db.flush()
+            db.add(AssemblyHistory(
                 assembly_id=assembly.id,
                 line_id=data.line_id,
                 serial_number=serial_number,
                 order_number=order_number,
-                product_type=product_type,
-                status=status,
-                repair_reason=data.repair_reason
-            )
-
-            db.add(history)
-            db.commit()
-
-            return {
-                "message": "Assembly Saved",
-                "status": status,
-                "order_number": order_number,
-                "product_type": product_type
-            }
-
-
-        # --------------------------------
-        # محصول قبلاً ثبت شده
-        # --------------------------------
-
-        # اگر الان REPAIR است
-        if assembly.status == "REPAIR":
-
-            # فقط OK اجازه دارد
-            if status != "OK":
-                return {
-                    "error": "This Order Is Already In Repair"
-                }
-
-            # تغییر وضعیت به OK
-            assembly.status = "OK"
-            assembly.repair_reason = None
-
-            db.commit()
-
-            history = AssemblyHistory(
-                assembly_id=assembly.id,
-                line_id=data.line_id,
-                serial_number=serial_number,
-                order_number=order_number,
-                product_type=product_type,
-                status="OK",
-                repair_reason=None
-            )
-
-            db.add(history)
-            db.commit()
-
-            return {
-                "message": "Assembly Returned From Repair",
-                "status": "OK",
-                "order_number": order_number,
-                "product_type": product_type
-            }
-
-
-        # --------------------------------
-        # محصول الان OK است
-        # --------------------------------
-
-        if assembly.status == "OK":
-
-            if status == "OK":
-                return {
-                    "error": "This Serial Is Already OK"
-                }
-
-            if status == "REPAIR":
-
-                if not data.repair_reason:
-                    return {
-                        "error": "Repair Reason Required"
-                    }
-
-                assembly.status = "REPAIR"
-                assembly.repair_reason = data.repair_reason
-
-                db.commit()
-
-                history = AssemblyHistory(
+                product_type=order_item.product_type,
+                status=initial_status,
+                repair_reason=repair_reason or None
+            ))
+            if stage:
+                db.add(AssemblyWorkflowHistory(
                     assembly_id=assembly.id,
                     line_id=data.line_id,
                     serial_number=serial_number,
-                    order_number=order_number,
-                    product_type=product_type,
-                    status="REPAIR",
-                    repair_reason=data.repair_reason
+                    from_stage=None,
+                    to_stage=stage,
+                    actor_username=station_actor,
+                    note=repair_reason
+                ))
+            db.commit()
+            return {
+                "message": "Repair case opened" if stage else "Assembly Saved",
+                "status": initial_status,
+                "repair_stage": stage,
+                "order_number": order_number,
+                "product_type": order_item.product_type
+            }
+
+        if status == "REPAIR":
+            previous_stage = assembly.repair_stage
+            reopen_after_qc = previous_stage == "EXIT_QUEUE"
+            if previous_stage not in (None, "CLOSED", "EXIT_QUEUE") or (assembly.status == "REPAIR" and not reopen_after_qc):
+                raise HTTPException(
+                    status_code=409,
+                    detail="An open repair case already exists for this serial"
                 )
+            validate_repair_transition(assembly.repair_stage, "REPAIR_QUEUE")
+            assembly.status = "REPAIR"
+            assembly.repair_reason = repair_reason
+            assembly.repair_stage = "REPAIR_QUEUE"
+            if not reopen_after_qc:
+                assembly.assigned_technician = None
+            assembly.qc_note = None
+            if not reopen_after_qc:
+                assembly.qc_return_count = 0
+            assembly.workflow_created_at = now
+            assembly.repair_started_at = None
+            assembly.repair_completed_at = None
+            assembly.qc_reviewed_at = None
+            assembly.closed_at = None
+            db.add(AssemblyHistory(
+                assembly_id=assembly.id,
+                line_id=data.line_id,
+                serial_number=serial_number,
+                order_number=assembly.order_number,
+                product_type=assembly.product_type,
+                status="REPAIR",
+                repair_reason=repair_reason
+            ))
+            db.add(AssemblyWorkflowHistory(
+                assembly_id=assembly.id,
+                line_id=data.line_id,
+                serial_number=serial_number,
+                from_stage=previous_stage,
+                to_stage="REPAIR_QUEUE",
+                actor_username=station_actor,
+                note=repair_reason
+            ))
+            db.commit()
+            return {
+                "message": "Repair case opened",
+                "status": assembly.status,
+                "repair_stage": assembly.repair_stage,
+                "order_number": assembly.order_number,
+                "product_type": assembly.product_type
+            }
 
-                db.add(history)
-                db.commit()
+        if assembly.repair_stage == "EXIT_QUEUE":
+            validate_repair_transition("EXIT_QUEUE", "CLOSED")
+            assembly.repair_stage = "CLOSED"
+            assembly.status = "OK"
+            assembly.closed_at = now
+            db.add(AssemblyWorkflowHistory(
+                assembly_id=assembly.id,
+                line_id=data.line_id,
+                serial_number=serial_number,
+                from_stage="EXIT_QUEUE",
+                to_stage="CLOSED",
+                actor_username=station_actor,
+                note="Closed by OK scan at originating assembly line"
+            ))
+            db.add(AssemblyHistory(
+                assembly_id=assembly.id,
+                line_id=data.line_id,
+                serial_number=serial_number,
+                order_number=assembly.order_number,
+                product_type=assembly.product_type,
+                status="OK",
+                repair_reason=assembly.repair_reason
+            ))
+            db.commit()
+            return {
+                "message": "Repair case closed",
+                "status": "OK",
+                "repair_stage": "CLOSED",
+                "order_number": assembly.order_number,
+                "product_type": assembly.product_type
+            }
 
-                return {
-                    "message": "Assembly Sent To Repair",
-                    "status": "REPAIR",
-                    "order_number": order_number,
-                    "product_type": product_type
-                }
+        if assembly.repair_stage not in (None, "CLOSED"):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Repair case must reach EXIT_QUEUE before closure (current: {assembly.repair_stage})"
+            )
+        if assembly.status == "OK":
+            raise HTTPException(status_code=409, detail="This Serial Is Already OK")
+        raise HTTPException(status_code=409, detail="Invalid Assembly State")
 
-        return {
-            "error": "Invalid Assembly State"
-        }
-
-    except Exception as ex:
-
+    except IntegrityError as exc:
         db.rollback()
-
-        return {
-            "error": str(ex)
-        }
-
+        raise HTTPException(
+            status_code=409,
+            detail="An open repair case already exists for this serial"
+        ) from exc
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc))
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not save assembly status") from exc
     finally:
-
         db.close()
+
+
+def _repair_actor(db, username, required_role):
+    actor = db.query(User).filter(
+        User.username == username.strip()
+    ).first()
+    if actor is None:
+        raise HTTPException(status_code=401, detail="Please log in again")
+    if actor.role != required_role:
+        raise HTTPException(status_code=403, detail=f"Only {required_role} users can perform this action")
+    return actor
+
+
+def _repair_case(db, line_id, serial_number, expected_stage=None):
+    case = db.query(Assembly).filter(
+        Assembly.origin_line_id == line_id,
+        Assembly.serial_number == serial_number.strip()
+    ).with_for_update().first()
+    if case is None:
+        raise HTTPException(status_code=404, detail="Assembly repair case not found")
+    if case.repair_stage is None:
+        raise HTTPException(status_code=409, detail="This assembly has no repair workflow")
+    if expected_stage and case.repair_stage != expected_stage:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Expected stage {expected_stage}, current stage is {case.repair_stage}"
+        )
+    return case
+
+
+def _record_repair_transition(db, case, from_stage, to_stage, username, note=None):
+    validate_repair_transition(from_stage, to_stage)
+    case.repair_stage = to_stage
+    db.add(AssemblyWorkflowHistory(
+        assembly_id=case.id,
+        line_id=case.line_id,
+        serial_number=case.serial_number,
+        from_stage=from_stage,
+        to_stage=to_stage,
+        actor_username=username,
+        note=(note or "").strip() or None
+    ))
+
+
+@app.post("/api/repair/start")
+def repair_start(data: RepairWorkflowAction):
+    db = SessionLocal()
+    try:
+        actor = _repair_actor(db, data.username, "technician")
+        case = _repair_case(db, data.line_id, data.serial_number, "REPAIR_QUEUE")
+        if case.assigned_technician and case.assigned_technician != actor.username:
+            raise HTTPException(status_code=409, detail="QC returned this case to its previous technician")
+        case.assigned_technician = actor.username
+        case.repair_started_at = datetime.now()
+        _record_repair_transition(db, case, "REPAIR_QUEUE", "IN_REPAIR", actor.username)
+        db.commit()
+        return {"success": True, "repair_stage": case.repair_stage, "assigned_technician": case.assigned_technician}
+    except HTTPException:
+        db.rollback()
+        raise
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc))
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not start repair") from exc
+    finally:
+        db.close()
+
+
+@app.post("/api/repair/complete")
+def repair_complete(data: RepairWorkflowAction):
+    db = SessionLocal()
+    try:
+        actor = _repair_actor(db, data.username, "technician")
+        case = _repair_case(db, data.line_id, data.serial_number, "IN_REPAIR")
+        if case.assigned_technician != actor.username:
+            raise HTTPException(status_code=403, detail="Only the assigned technician can submit this repair for QC")
+        case.repair_completed_at = datetime.now()
+        case.qc_note = None
+        _record_repair_transition(db, case, "IN_REPAIR", "QC_QUEUE", actor.username)
+        db.commit()
+        return {"success": True, "repair_stage": case.repair_stage}
+    except HTTPException:
+        db.rollback()
+        raise
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc))
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not submit repair for QC") from exc
+    finally:
+        db.close()
+
+
+@app.post("/api/repair/qc-review")
+def repair_qc_review(data: QualityControlReview):
+    db = SessionLocal()
+    try:
+        actor = _repair_actor(db, data.username, "qc")
+        case = _repair_case(db, data.line_id, data.serial_number, "QC_QUEUE")
+        note = (data.note or "").strip()
+        if not data.approved and not note:
+            raise HTTPException(status_code=400, detail="QC rejection reason is required")
+        now = datetime.now()
+        case.qc_reviewed_at = now
+        case.qc_note = note or None
+        if data.approved:
+            _record_repair_transition(db, case, "QC_QUEUE", "EXIT_QUEUE", actor.username, note)
+        else:
+            case.qc_return_count = (case.qc_return_count or 0) + 1
+            _record_repair_transition(db, case, "QC_QUEUE", "REPAIR_QUEUE", actor.username, note)
+        db.commit()
+        return {
+            "success": True,
+            "repair_stage": case.repair_stage,
+            "assigned_technician": case.assigned_technician,
+            "qc_return_count": case.qc_return_count
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc))
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not save QC result") from exc
+    finally:
+        db.close()
+
+
+@app.get("/api/repair/monitor")
+def repair_monitor(line_id: int | None = None, work_date: date | None = None, username: str | None = None):
+    db = SessionLocal()
+    try:
+        selected_date = work_date or date.today()
+        query = db.query(Assembly)
+        if line_id is not None:
+            query = query.filter(Assembly.origin_line_id == line_id)
+        open_cases = query.filter(
+            Assembly.repair_stage.in_(["REPAIR_QUEUE", "IN_REPAIR", "QC_QUEUE", "EXIT_QUEUE"])
+        ).order_by(Assembly.workflow_created_at, Assembly.id).all()
+        stages = {name: [] for name in ("REPAIR_QUEUE", "IN_REPAIR", "QC_QUEUE", "EXIT_QUEUE")}
+        for case in open_cases:
+            stages[case.repair_stage].append({
+                "id": case.id,
+                "line_id": case.line_id,
+                "serial_number": case.serial_number,
+                "order_number": case.order_number,
+                "product_type": case.product_type,
+                "repair_reason": case.repair_reason,
+                "assigned_technician": case.assigned_technician,
+                "qc_note": case.qc_note,
+                "qc_return_count": case.qc_return_count or 0,
+                "repair_stage": case.repair_stage,
+                "workflow_created_at": case.workflow_created_at.isoformat() if case.workflow_created_at else None,
+                "repair_started_at": case.repair_started_at.isoformat() if case.repair_started_at else None,
+                "repair_completed_at": case.repair_completed_at.isoformat() if case.repair_completed_at else None
+            })
+        if username:
+            actor = db.query(User).filter(User.username == username.strip()).first()
+            if actor is None or actor.role not in ("qc", "technician"):
+                raise HTTPException(status_code=403, detail="A QC or Technician account is required")
+            if actor.role == "qc":
+                stages = {name: items if name == "QC_QUEUE" else [] for name, items in stages.items()}
+            else:
+                stages = {name: items if name in ("REPAIR_QUEUE", "IN_REPAIR") else [] for name, items in stages.items()}
+        daily = db.query(AssemblyWorkflowHistory).filter(
+            AssemblyWorkflowHistory.created_at >= datetime.combine(selected_date, datetime.min.time()),
+            AssemblyWorkflowHistory.created_at < datetime.combine(selected_date + timedelta(days=1), datetime.min.time())
+        )
+        if line_id is not None:
+            daily = daily.filter(AssemblyWorkflowHistory.line_id == line_id)
+        events = daily.all()
+        return {
+            "work_date": str(selected_date),
+            "queues": stages,
+            "counts": {stage: len(items) for stage, items in stages.items()},
+            "daily": {
+                "opened": sum(1 for event in events if event.to_stage == "REPAIR_QUEUE" and event.from_stage in (None, "CLOSED")),
+                "repairs_started": sum(1 for event in events if event.to_stage == "IN_REPAIR"),
+                "sent_to_qc": sum(1 for event in events if event.to_stage == "QC_QUEUE"),
+                "qc_approved": sum(1 for event in events if event.to_stage == "EXIT_QUEUE"),
+                "qc_returned": sum(1 for event in events if event.from_stage == "QC_QUEUE" and event.to_stage == "REPAIR_QUEUE"),
+                "closed": sum(1 for event in events if event.to_stage == "CLOSED")
+            }
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/repair/monitor/overview")
+def repair_monitor_overview():
+    db = SessionLocal()
+    try:
+        stages = ("REPAIR_QUEUE", "IN_REPAIR", "QC_QUEUE", "EXIT_QUEUE")
+        lines = db.query(Line).order_by(Line.id).all()
+        line_rows = {
+            line.id: {
+                "line_id": line.id,
+                "line_name": line.name or f"Line {line.id}",
+                "counts": {stage: 0 for stage in stages}
+            }
+            for line in lines
+        }
+        grouped = db.query(
+            Assembly.origin_line_id,
+            Assembly.repair_stage,
+            func.count(Assembly.id)
+        ).filter(
+            Assembly.repair_stage.in_(stages)
+        ).group_by(Assembly.origin_line_id, Assembly.repair_stage).all()
+        totals = {stage: 0 for stage in stages}
+        for line_id, stage, count in grouped:
+            if line_id not in line_rows:
+                line_rows[line_id] = {
+                    "line_id": line_id,
+                    "line_name": f"Line {line_id}",
+                    "counts": {name: 0 for name in stages}
+                }
+            line_rows[line_id]["counts"][stage] = count
+            totals[stage] += count
+        return {
+            "updated_at": datetime.now().isoformat(),
+            "stages": list(stages),
+            "totals": totals,
+            "lines": list(line_rows.values())
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/repair/monitor/stream")
+def repair_monitor_stream():
+    def events():
+        previous_snapshot = None
+        last_heartbeat = time.monotonic()
+        while True:
+            try:
+                payload = repair_monitor_overview()
+                snapshot = {key: value for key, value in payload.items() if key != "updated_at"}
+                signature = json.dumps(snapshot, sort_keys=True)
+                if signature != previous_snapshot:
+                    previous_snapshot = signature
+                    payload["updated_at"] = datetime.now().isoformat()
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    last_heartbeat = time.monotonic()
+                elif time.monotonic() - last_heartbeat >= 15:
+                    yield ": keep-alive\n\n"
+                    last_heartbeat = time.monotonic()
+            except Exception:
+                yield ": monitor refresh failed\n\n"
+            time.sleep(1)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
+
+@app.get("/api/admin/repair-dashboard")
+def admin_repair_dashboard(
+    admin_username: str = Query(...),
+    serial_number: str | None = None,
+    line_id: int | None = None
+):
+    db = SessionLocal()
+    try:
+        verify_personnel_dashboard_access(db, admin_username)
+        labels = {
+            "REPAIR_QUEUE": "repair_queue_times",
+            "IN_REPAIR": "repair_started_times",
+            "QC_QUEUE": "sent_to_qc_times",
+            "EXIT_QUEUE": "exit_queue_times",
+            "CLOSED": "returned_to_line_times"
+        }
+        query = db.query(AssemblyWorkflowHistory, Line.name).outerjoin(
+            Line, Line.id == AssemblyWorkflowHistory.line_id
+        ).filter(
+            AssemblyWorkflowHistory.to_stage.in_(labels.keys())
+        )
+        if serial_number and serial_number.strip():
+            query = query.filter(
+                AssemblyWorkflowHistory.serial_number.ilike(f"%{serial_number.strip()}%")
+            )
+        if line_id is not None:
+            query = query.filter(AssemblyWorkflowHistory.line_id == line_id)
+        records = query.order_by(
+            AssemblyWorkflowHistory.created_at.desc(),
+            AssemblyWorkflowHistory.id.desc()
+        ).limit(2000).all()
+        serials = {}
+        for event, line_name in records:
+            row = serials.setdefault(event.serial_number, {
+                "serial_number": event.serial_number,
+                "line_id": event.line_id,
+                "line_name": line_name or f"Line {event.line_id}",
+                **{field: [] for field in labels.values()}
+            })
+            if event.created_at:
+                row[labels[event.to_stage]].append(event.created_at.isoformat())
+        return {
+            "updated_at": datetime.now().isoformat(),
+            "lines": [{"line_id": item.id, "line_name": item.name or f"Line {item.id}"}
+                      for item in db.query(Line).order_by(Line.id).all()],
+            "serials": list(serials.values())
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/repair/history/{line_id}/{serial_number}")
+def repair_history(line_id: int, serial_number: str):
+    db = SessionLocal()
+    try:
+        records = db.query(AssemblyWorkflowHistory).filter(
+            AssemblyWorkflowHistory.line_id == line_id,
+            AssemblyWorkflowHistory.serial_number == serial_number
+        ).order_by(AssemblyWorkflowHistory.created_at, AssemblyWorkflowHistory.id).all()
+        return [{
+            "from_stage": item.from_stage,
+            "to_stage": item.to_stage,
+            "actor_username": item.actor_username,
+            "note": item.note,
+            "created_at": item.created_at.isoformat()
+        } for item in records]
+    finally:
+        db.close()
+
 
 @app.get("/api/assembly/history/{line_id}")
 def get_assembly_history(line_id: int):
@@ -1562,19 +2254,19 @@ def get_assembly_monitor(line_id: int):
 
     try:
 
+        if not db.query(Line.id).filter(
+            Line.id == line_id
+        ).first():
+            raise HTTPException(
+                status_code=404,
+                detail="Production line not found"
+            )
+
         # -----------------------------
         # STOP
         # -----------------------------
 
-        stop_minutes = db.query(
-            func.coalesce(
-                func.sum(LineStop.stop_minutes),
-                0
-            )
-        ).filter(
-            LineStop.line_id == line_id,
-            LineStop.created_at >= today
-        ).scalar()
+        stop_minutes = _line_stop_minutes_for_today(db, line_id)
 
 
         # -----------------------------
@@ -1661,39 +2353,6 @@ def get_assembly_monitor(line_id: int):
             Assembly.created_at >= today
         ).scalar()
 
-        aio = db.query(
-            func.count()
-        ).filter(
-            Assembly.line_id == line_id,
-            Assembly.product_type == "AIO",
-            Assembly.created_at >= today
-        ).scalar()
-
-        mnt = db.query(
-            func.count()
-        ).filter(
-            Assembly.line_id == line_id,
-            Assembly.product_type == "MNT",
-            Assembly.created_at >= today
-        ).scalar()
-
-        case = db.query(
-            func.count()
-        ).filter(
-            Assembly.line_id == line_id,
-            Assembly.product_type == "CASE",
-            Assembly.created_at >= today
-        ).scalar()
-
-        nb = db.query(
-            func.count()
-        ).filter(
-            Assembly.line_id == line_id,
-            Assembly.product_type == "NB",
-            Assembly.created_at >= today
-        ).scalar()
-
-
         # -----------------------------
         # ACTUAL
         # -----------------------------
@@ -1724,14 +2383,6 @@ def get_assembly_monitor(line_id: int):
 
         return {
 
-            "aio": aio,
-
-            "mnt": mnt,
-
-            "case": case,
-
-            "nb": nb,
-
             "ok": ok_count,
 
             "repair": repair_count,
@@ -1754,6 +2405,8 @@ def get_assembly_monitor(line_id: int):
             "nb": nb,
 
             "product_name": line.assembly_product_name or "",
+            "tea_time": line.tea_time.strftime("%H:%M") if line.tea_time else None,
+            "lunch_time": line.lunch_time.strftime("%H:%M") if line.lunch_time else None,
 
         }
 
@@ -2116,6 +2769,11 @@ def update_supervisor_assembly(
                 "error": "Assembly Not Found"
             }
 
+        if item.repair_stage is not None:
+            return {
+                "error": "Assembly records with a repair workflow cannot be edited"
+            }
+
         serial_number = data.serial_number.strip()
 
         if not serial_number:
@@ -2247,6 +2905,11 @@ def delete_supervisor_assembly(
                 "error": "Assembly Not Found"
             }
 
+        if item.repair_stage not in (None, "CLOSED"):
+            return {
+                "error": "An open repair case cannot be deleted"
+            }
+
         db.delete(item)
 
         db.commit()
@@ -2319,19 +2982,7 @@ def get_dashboard():
             # STOP
             # ======================================
 
-            stop_minutes = db.query(
-                func.coalesce(
-                    func.sum(LineStop.stop_minutes),
-                    0
-                )
-            ).filter(
-                LineStop.line_id == line_id,
-                LineStop.created_at >= today
-            ).scalar()
-
-            stop_minutes = int(
-                stop_minutes or 0
-            )
+            stop_minutes = _line_stop_minutes_for_today(db, line_id)
 
 
             # ======================================
@@ -2397,12 +3048,10 @@ def get_dashboard():
             ).scalar()
 
 
-            pack_actual = (
-                pack_aio +
-                pack_mnt +
-                pack_case +
-                pack_nb
-            )
+            pack_actual = db.query(func.count()).filter(
+                Serial.line_id == line_id,
+                Serial.created_at >= today
+            ).scalar()
 
 
             pack_aio_equivalent = int(
@@ -2450,12 +3099,10 @@ def get_dashboard():
             ).scalar()
 
 
-            assembly_actual = (
-                assembly_aio +
-                assembly_mnt +
-                assembly_case +
-                assembly_nb
-            )
+            assembly_actual = db.query(func.count()).filter(
+                Assembly.line_id == line_id,
+                Assembly.created_at >= today
+            ).scalar()
 
 
             assembly_aio_equivalent = int(
@@ -2547,6 +3194,10 @@ def get_dashboard():
 
                 "pack_product": pack_product,
 
+                "tea_time": line.tea_time.strftime("%H:%M") if line and line.tea_time else None,
+
+                "lunch_time": line.lunch_time.strftime("%H:%M") if line and line.lunch_time else None,
+
                 # ------------------------------
                 # PACK
                 # ------------------------------
@@ -2630,7 +3281,7 @@ def get_dashboard():
                     repair_count,
             })
 
-            
+
 
 
         return result
@@ -2666,12 +3317,35 @@ def update_line_status(
 
         line = db.query(Line).filter(
             Line.id == line_id
-        ).first()
+        ).with_for_update().first()
 
         if not line:
             return {
                 "error": "Line Not Found"
             }
+
+        now = datetime.now()
+        reason = (data.reason or "").strip()
+        open_stop = db.query(LineStop).filter(
+            LineStop.line_id == line_id,
+            LineStop.stop_minutes == 0
+        ).order_by(LineStop.created_at.desc()).with_for_update().first()
+
+        if status == "STOPPED" and not open_stop:
+            if not reason:
+                return {"error": "Stop reason is required"}
+            db.add(LineStop(
+                line_id=line_id,
+                stop_minutes=0,
+                created_at=now,
+                reason=reason
+            ))
+        elif status == "STOPPED" and open_stop and reason:
+            open_stop.reason = reason
+        elif status == "RUNNING" and line.status == "STOPPED" and open_stop:
+            elapsed_seconds = max(0, (now - open_stop.created_at).total_seconds())
+            open_stop.stop_minutes = max(1, int((elapsed_seconds + 59) // 60))
+            open_stop.ended_at = now
 
         line.status = status
 
@@ -2710,14 +3384,20 @@ def get_line_status():
             .all()
         )
 
-        return [
-            {
+        result = []
+        for line in lines:
+            active_stop = db.query(LineStop).filter(
+                LineStop.line_id == line.id,
+                LineStop.stop_minutes == 0
+            ).order_by(LineStop.created_at.desc()).first()
+            result.append({
                 "line_id": line.id,
                 "name": line.name,
-                "status": line.status
-            }
-            for line in lines
-        ]
+                "status": line.status,
+                "stop_reason": active_stop.reason if active_stop else None,
+                "stop_started_at": active_stop.created_at.isoformat() if active_stop else None
+            })
+        return result
 
     finally:
 
@@ -2828,6 +3508,50 @@ def get_supervisor_products(line_id: int):
             "pack_product_name": line.pack_product_name or ""
         }
 
+    finally:
+        db.close()
+
+
+@app.get("/api/supervisor/break-times/{line_id}")
+def supervisor_get_break_times(line_id: int, username: str):
+    db = SessionLocal()
+    try:
+        verify_supervisor_line(db, username, line_id)
+        line = db.query(Line).filter(Line.id == line_id).first()
+        if line is None:
+            raise HTTPException(status_code=404, detail="Production line not found")
+        return {
+            "line_id": line.id,
+            "tea_time": line.tea_time.strftime("%H:%M") if line.tea_time else None,
+            "lunch_time": line.lunch_time.strftime("%H:%M") if line.lunch_time else None
+        }
+    finally:
+        db.close()
+
+
+@app.put("/api/supervisor/break-times/{line_id}")
+def supervisor_update_break_times(line_id: int, data: LineBreakTimesUpdate):
+    db = SessionLocal()
+    try:
+        verify_supervisor_line(db, data.username, line_id)
+        line = db.query(Line).filter(Line.id == line_id).first()
+        if line is None:
+            raise HTTPException(status_code=404, detail="Production line not found")
+        line.tea_time = data.tea_time
+        line.lunch_time = data.lunch_time
+        db.commit()
+        return {
+            "success": True,
+            "line_id": line.id,
+            "tea_time": line.tea_time.strftime("%H:%M") if line.tea_time else None,
+            "lunch_time": line.lunch_time.strftime("%H:%M") if line.lunch_time else None
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not save line break times") from exc
     finally:
         db.close()
 
@@ -3621,10 +4345,40 @@ def verify_admin(db, admin_username):
     return admin
 
 
+def verify_personnel_dashboard_access(db, admin_username):
+    user = db.query(User).filter(
+        User.username == admin_username
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    if user.role not in ("admin", "dashboard"):
+        raise HTTPException(
+            status_code=403,
+            detail="Only administrators and dashboard users can access this dashboard"
+        )
+
+    return user
+
+
+def verify_supervisor_line(db, username, line_id):
+    user = db.query(User).filter(User.username == username.strip()).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="Please log in again")
+    if user.role != "supervisor" or user.line_id != line_id:
+        raise HTTPException(status_code=403, detail="This supervisor can only manage their assigned line")
+    return user
+
+
 @app.get("/api/admin/employees")
 def admin_get_employees(
     admin_username: str,
-    line_id: int | None = None
+    line_id: int | None = None,
+    unit: str | None = None
 ):
 
     db = SessionLocal()
@@ -3639,6 +4393,8 @@ def admin_get_employees(
             query = query.filter(
                 Employee.line_id == line_id
             )
+        if unit is not None:
+            query = query.filter(Employee.unit == unit.strip().upper())
 
         employees = query.order_by(
             Employee.line_id,
@@ -3654,6 +4410,8 @@ def admin_get_employees(
                     "personnel_code": emp.personnel_code,
                     "full_name": emp.full_name,
                     "line_id": emp.line_id,
+                    "unit": emp.unit,
+                    "position": emp.position,
                     "is_active": emp.is_active
                 }
                 for emp in employees
@@ -3682,15 +4440,19 @@ def admin_create_employee(data: AdminEmployeeCreate):
 
         verify_admin(db, data.admin_username)
 
-        line = db.query(Line).filter(
-            Line.id == data.line_id
-        ).first()
-
-        if not line:
+        unit = (data.unit or "").strip().upper() or None
+        if (data.line_id is None) == (unit is None):
             raise HTTPException(
-                status_code=404,
-                detail="Production line not found"
+                status_code=400,
+                detail="Select exactly one production line or personnel unit"
             )
+        if unit not in (None, "ADMINISTRATION", "SUPPORT"):
+            raise HTTPException(status_code=400, detail="Invalid personnel unit")
+        position = (data.position or "STAFF").strip().upper()
+        if position not in {"SUPERVISOR", "LOADING", "STAFF"}:
+            raise HTTPException(status_code=400, detail="Invalid employee position")
+        if data.line_id is not None and not db.query(Line).filter(Line.id == data.line_id).first():
+            raise HTTPException(status_code=404, detail="Production line not found")
 
         existing = db.query(Employee).filter(
             Employee.personnel_code == data.personnel_code
@@ -3706,6 +4468,8 @@ def admin_create_employee(data: AdminEmployeeCreate):
             personnel_code=data.personnel_code,
             full_name=data.full_name,
             line_id=data.line_id,
+            unit=unit,
+            position=position,
             is_active=1
         )
 
@@ -3721,6 +4485,8 @@ def admin_create_employee(data: AdminEmployeeCreate):
                 "personnel_code": employee.personnel_code,
                 "full_name": employee.full_name,
                 "line_id": employee.line_id,
+                "unit": employee.unit,
+                "position": employee.position,
                 "is_active": employee.is_active
             }
         }
@@ -3763,15 +4529,19 @@ def admin_update_employee(
                 detail="Employee not found"
             )
 
-        line = db.query(Line).filter(
-            Line.id == data.line_id
-        ).first()
-
-        if not line:
+        unit = (data.unit or "").strip().upper() or None
+        if (data.line_id is None) == (unit is None):
             raise HTTPException(
-                status_code=404,
-                detail="Production line not found"
+                status_code=400,
+                detail="Select exactly one production line or personnel unit"
             )
+        if unit not in (None, "ADMINISTRATION", "SUPPORT"):
+            raise HTTPException(status_code=400, detail="Invalid personnel unit")
+        position = (data.position or "STAFF").strip().upper()
+        if position not in {"SUPERVISOR", "LOADING", "STAFF"}:
+            raise HTTPException(status_code=400, detail="Invalid employee position")
+        if data.line_id is not None and not db.query(Line).filter(Line.id == data.line_id).first():
+            raise HTTPException(status_code=404, detail="Production line not found")
 
         duplicate = db.query(Employee).filter(
             Employee.personnel_code == data.personnel_code,
@@ -3787,6 +4557,8 @@ def admin_update_employee(
         employee.personnel_code = data.personnel_code
         employee.full_name = data.full_name
         employee.line_id = data.line_id
+        employee.unit = unit
+        employee.position = position
 
         db.commit()
 
@@ -3839,6 +4611,15 @@ def admin_update_employee_status(
             )
 
         employee.is_active = data.is_active
+
+        if data.is_active == 0:
+            assignments = db.query(DailyAttendance).filter(
+                DailyAttendance.employee_id == employee.id,
+                DailyAttendance.attendance_date == date.today()
+            ).all()
+            for attendance in assignments:
+                attendance.station_id = None
+                attendance.status = "INACTIVE"
 
         db.commit()
 
@@ -4120,6 +4901,12 @@ def create_leave(data: LeaveCreate):
                     detail="Daily leave is limited to one date"
                 )
 
+            if leave_type == "SICK" and (data.start_time or data.end_time):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Sick leave must cover full days"
+                )
+
         # بررسی تداخل مرخصی‌ها
         overlaps = db.query(LeaveRecord).filter(
             LeaveRecord.employee_id == employee.id,
@@ -4279,6 +5066,78 @@ def get_leaves(
     finally:
         db.close()
 
+@app.post("/api/admin/personnel-leaves")
+def admin_create_personnel_leave(data: AdminLeaveCreate):
+    db = SessionLocal()
+    try:
+        admin = verify_admin(db, data.admin_username)
+        employee = db.query(Employee).filter(
+            Employee.id == data.employee_id,
+            Employee.is_active == 1,
+            Employee.unit.in_(["ADMINISTRATION", "SUPPORT"])
+        ).first()
+        if not employee:
+            raise HTTPException(
+                status_code=404,
+                detail="Active administration or support employee not found"
+            )
+
+        leave_type = data.leave_type.upper().strip()
+        if leave_type not in {"DAILY", "HOURLY", "SICK"}:
+            raise HTTPException(status_code=400, detail="Invalid leave type")
+        start_date = data.start_date
+        end_date = data.end_date or start_date
+        if end_date < start_date:
+            raise HTTPException(status_code=400, detail="Invalid date range")
+        start_time, end_time = data.start_time, data.end_time
+        if leave_type == "HOURLY":
+            if end_date != start_date or not start_time or not end_time or start_time >= end_time:
+                raise HTTPException(status_code=400, detail="Invalid hourly leave time range")
+        else:
+            start_time = end_time = None
+            if leave_type == "DAILY" and end_date != start_date:
+                raise HTTPException(status_code=400, detail="Daily leave is limited to one date")
+            if leave_type == "SICK" and (data.start_time or data.end_time):
+                raise HTTPException(status_code=400, detail="Sick leave must cover full days")
+
+        overlaps = db.query(LeaveRecord).filter(
+            LeaveRecord.employee_id == employee.id,
+            LeaveRecord.start_date <= end_date,
+            LeaveRecord.end_date >= start_date
+        ).all()
+        for existing in overlaps:
+            if (
+                leave_type == "HOURLY" and existing.leave_type == "HOURLY"
+                and existing.start_date == start_date and existing.start_time and existing.end_time
+                and (start_time >= existing.end_time or end_time <= existing.start_time)
+            ):
+                continue
+            raise HTTPException(status_code=409, detail="This leave overlaps an existing leave")
+
+        leave = LeaveRecord(
+            employee_id=employee.id,
+            leave_type=leave_type,
+            start_date=start_date,
+            end_date=end_date,
+            start_time=start_time,
+            end_time=end_time,
+            notes=(data.notes or "").strip() or None,
+            created_by=admin.id
+        )
+        db.add(leave)
+        db.commit()
+        db.refresh(leave)
+        return {"success": True, "leave_id": leave.id}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        db.close()
+
+
 @app.get("/api/admin/personnel-dashboard")
 def admin_personnel_dashboard(
     admin_username: str,
@@ -4289,7 +5148,7 @@ def admin_personnel_dashboard(
 
     try:
         # فقط ادمین اجازه مشاهده دارد
-        verify_admin(db, admin_username)
+        verify_personnel_dashboard_access(db, admin_username)
 
         today = date.today()
         start_date = start_date or today
@@ -4304,7 +5163,7 @@ def admin_personnel_dashboard(
         # دریافت همه پرسنل و ایستگاه تخصیص‌یافته امروز
         employee_rows = (
             db.query(Employee, Line, Station)
-            .join(Line, Employee.line_id == Line.id)
+            .outerjoin(Line, Employee.line_id == Line.id)
             .outerjoin(
                 DailyAttendance,
                 and_(
@@ -4328,7 +5187,13 @@ def admin_personnel_dashboard(
                 "personnel_code": employee.personnel_code,
                 "full_name": employee.full_name,
                 "line_id": employee.line_id,
-                "line_name": line.name,
+                "unit": employee.unit,
+                "position": employee.position,
+                "line_name": line.name if line else (
+                    "Administration" if employee.unit == "ADMINISTRATION"
+                    else "Support" if employee.unit == "SUPPORT"
+                    else "Not assigned"
+                ),
                 "is_active": employee.is_active,
                 "station_name": (
                     station.station_name if station else None
@@ -4344,7 +5209,8 @@ def admin_personnel_dashboard(
             )
             .join(
                 Line,
-                Employee.line_id == Line.id
+                Employee.line_id == Line.id,
+                isouter=True
             )
             .filter(
                 LeaveRecord.start_date <= end_date,
@@ -4366,7 +5232,12 @@ def admin_personnel_dashboard(
                 "personnel_code": employee.personnel_code,
                 "employee_name": employee.full_name,
                 "line_id": employee.line_id,
-                "line_name": line.name,
+                "unit": employee.unit,
+                "line_name": line.name if line else (
+                    "Administration" if employee.unit == "ADMINISTRATION"
+                    else "Support" if employee.unit == "SUPPORT"
+                    else "Not assigned"
+                ),
                 "leave_type": leave.leave_type,
                 "start_date": str(leave.start_date),
                 "end_date": str(leave.end_date),

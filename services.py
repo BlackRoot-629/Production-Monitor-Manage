@@ -53,13 +53,31 @@ def calculate_expected_count(
 
             worked_seconds -= 2700
 
-    worked_seconds -= stop_minutes * 60
+    worked_seconds = max(0, worked_seconds - max(0, stop_minutes or 0) * 60)
 
-    expected = int(worked_seconds / 225)
+    expected = worked_seconds // 225
 
-    expected -= switch_count * 12
+    expected -= max(0, switch_count or 0) * 12
 
     if expected < 0:
         expected = 0
 
     return expected
+
+
+REPAIR_WORKFLOW_TRANSITIONS = {
+    None: {"REPAIR_QUEUE"},
+    "REPAIR_QUEUE": {"IN_REPAIR"},
+    "IN_REPAIR": {"QC_QUEUE"},
+    "QC_QUEUE": {"REPAIR_QUEUE", "EXIT_QUEUE"},
+    "EXIT_QUEUE": {"CLOSED", "REPAIR_QUEUE"},
+    "CLOSED": {"REPAIR_QUEUE"},
+}
+
+
+def validate_repair_transition(current_stage, next_stage):
+    allowed = REPAIR_WORKFLOW_TRANSITIONS.get(current_stage, set())
+    if next_stage not in allowed:
+        raise ValueError(
+            f"Invalid repair workflow transition: {current_stage!r} -> {next_stage!r}"
+        )

@@ -59,6 +59,64 @@
             margin-bottom: 22px;
         }
 
+        .date-filter-card {
+            border-color: #334766;
+            background: linear-gradient(135deg, #172033, #14243b);
+            padding: 18px 22px;
+        }
+
+        .date-filter-toolbar {
+            display: flex;
+            align-items: end;
+            gap: 18px 28px;
+        }
+
+        .toolbar.date-filter-toolbar {
+            justify-content: flex-start;
+        }
+
+        .date-filter-field {
+            min-width: 245px;
+        }
+
+        .date-filter-field label {
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+
+        #attendanceDate {
+            width: 245px;
+            min-width: 245px;
+            height: 44px;
+            border-color: #42618b;
+            background-color: #0c1628;
+            cursor: pointer;
+            text-align: center;
+            direction: ltr;
+            font-size: 15px;
+            letter-spacing: .04em;
+        }
+
+        #attendanceDate:hover {
+            border-color: #60a5fa;
+        }
+
+        #lineDisplay {
+            width: 220px;
+            min-width: 220px;
+            height: 44px;
+            color: #bfdbfe;
+            background: #111c30;
+        }
+
+        .pwt-datepicker-container {
+            z-index: 5000 !important;
+        }
+
+        .pwt-datepicker {
+            box-shadow: 0 14px 36px rgba(0, 0, 0, .45);
+        }
+
         .card-title {
             font-size: 17px;
             font-weight: bold;
@@ -188,13 +246,13 @@
             overflow-x: auto;
         }
 
-        table {
+        .table-wrapper table {
             width: 100%;
             border-collapse: collapse;
             min-width: 750px;
         }
 
-        th {
+        .table-wrapper th {
             text-align: left;
             color: #93c5fd;
             background: #111c30;
@@ -203,17 +261,17 @@
             white-space: nowrap;
         }
 
-        td {
+        .table-wrapper td {
             padding: 12px;
             border-bottom: 1px solid #273449;
             font-size: 13px;
         }
 
-        tr:hover td {
+        .table-wrapper tr:hover td {
             background: #1c2940;
         }
 
-        td select {
+        .table-wrapper td select {
             width: 100%;
             min-width: 150px;
         }
@@ -373,8 +431,22 @@
             h1 {
                 font-size: 21px;
             }
+
+            .date-filter-toolbar {
+                align-items: stretch;
+                gap: 14px;
+            }
+
+            .date-filter-field,
+            #attendanceDate,
+            #lineDisplay {
+                width: 100%;
+                min-width: 0;
+            }
         }
     </style>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+
 </head>
 
 <body>
@@ -396,21 +468,22 @@
     </div>
 
     <!-- DATE SELECTION -->
-    <div class="card">
-        <div class="toolbar">
+    <div class="card date-filter-card">
+        <div class="toolbar date-filter-toolbar">
 
-            <div class="field">
-                <label>Select Attendance Date</label>
+            <div class="field date-filter-field">
+                <label for="attendanceDate">FILTER BY ATTENDANCE DATE</label>
                 <input
                     type="text"
                     id="attendanceDate"
-                    placeholder="Select Persian Date"
+                    placeholder="Choose a date"
                     readonly
+                    aria-label="Select attendance date"
                 >
             </div>
 
-            <div class="field">
-                <label>Line</label>
+            <div class="field date-filter-field">
+                <label for="lineDisplay">PRODUCTION LINE</label>
                 <input
                     type="text"
                     id="lineDisplay"
@@ -489,8 +562,10 @@
                 <div class="field hidden-field" id="leaveEndDateField">
                     <label>End Date</label>
                     <input
-                        type="date"
+                        type="text"
                         id="leaveEndDate"
+                        placeholder="Choose Persian date"
+                        readonly
                     >
                 </div>
 
@@ -665,6 +740,7 @@
     let stations = [];
     let employees = [];
     let selectedGregorianDate = null;
+    let leaveEndGregorianDate = null;
 
 
     // ==========================================
@@ -702,6 +778,20 @@
         }
 
         return normalizeDigits(selectedGregorianDate);
+    }
+
+
+    function formatGregorianDateAsPersian(value) {
+        const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!match) {
+            return value || "-";
+        }
+        const localDate = new Date(
+            Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12
+        );
+        return new persianDate(localDate.getTime())
+            .toCalendar("persian")
+            .format("YYYY/MM/DD");
     }
 
 
@@ -757,43 +847,56 @@
 
     function initializePersianDatepicker() {
 
-        const today = new persianDate();
-
         selectedGregorianDate = normalizeDigits(
-            today.toCalendar("gregorian").format("YYYY-MM-DD")
+            new persianDate()
+                .toCalendar("gregorian")
+                .format("YYYY-MM-DD")
         );
+        const todayPersianDisplay = formatGregorianDateAsPersian(selectedGregorianDate);
 
         $("#attendanceDate").val(
-            today.format("YYYY/MM/DD")
+            todayPersianDisplay
         );
 
         $("#attendanceDate").persianDatepicker({
 
             format: "YYYY/MM/DD",
             initialValue: true,
+            initialValueType: "persian",
             autoClose: true,
 
             calendar: {
                 persian: {
-                    locale: "en",
+                    locale: "fa",
                     leapYearMode: "astronomical"
+                },
+                gregorian: {
+                    locale: "en",
+                    showHint: false
+                }
+            },
+            toolbox: {
+                calendarSwitch: { enabled: false },
+                todayButton: {
+                    enabled: true,
+                    text: { fa: "امروز", en: "Today" }
                 }
             },
 
             onSelect: function(unixDate) {
 
-                const selectedDate = new persianDate(unixDate);
-
                 selectedGregorianDate = normalizeDigits(
-                    selectedDate
+                    new persianDate(unixDate)
                         .toCalendar("gregorian")
                         .format("YYYY-MM-DD")
                 );
 
+                leaveEndGregorianDate = selectedGregorianDate;
+                const displayDate = formatGregorianDateAsPersian(selectedGregorianDate);
+
                 // تاریخ فرم مرخصی هم با تاریخ انتخابی هماهنگ شود
-                $("#leaveStartDate").val(
-                    selectedDate.format("YYYY/MM/DD")
-                );
+                $("#leaveStartDate").val(displayDate);
+                $("#leaveEndDate").val(displayDate);
 
                 loadAll();
             }
@@ -801,8 +904,44 @@
         });
 
         $("#leaveStartDate").val(
-            today.format("YYYY/MM/DD")
+            todayPersianDisplay
         );
+
+        leaveEndGregorianDate = selectedGregorianDate;
+        $("#leaveEndDate").val(todayPersianDisplay);
+        $("#leaveEndDate").persianDatepicker({
+            format: "YYYY/MM/DD",
+            initialValue: true,
+            initialValueType: "persian",
+            autoClose: true,
+            calendar: {
+                persian: {
+                    locale: "fa",
+                    leapYearMode: "astronomical"
+                },
+                gregorian: {
+                    locale: "en",
+                    showHint: false
+                }
+            },
+            toolbox: {
+                calendarSwitch: { enabled: false },
+                todayButton: {
+                    enabled: true,
+                    text: { fa: "امروز", en: "Today" }
+                }
+            },
+            onSelect: function(unixDate) {
+                leaveEndGregorianDate = normalizeDigits(
+                    new persianDate(unixDate)
+                        .toCalendar("gregorian")
+                        .format("YYYY-MM-DD")
+                );
+                $("#leaveEndDate").val(
+                    formatGregorianDateAsPersian(leaveEndGregorianDate)
+                );
+            }
+        });
     }
 
 
@@ -1042,8 +1181,8 @@
                             ${escapeHtml(leaveLabel)}
                         </span>
                     </td>
-                    <td>${escapeHtml(leave.start_date || "-")}</td>
-                    <td>${escapeHtml(leave.end_date || "-")}</td>
+                    <td>${escapeHtml(formatGregorianDateAsPersian(leave.start_date))}</td>
+                    <td>${escapeHtml(formatGregorianDateAsPersian(leave.end_date))}</td>
                     <td>${escapeHtml(timeText)}</td>
                     <td>${escapeHtml(leave.notes || "-")}</td>
                 </tr>
@@ -1072,8 +1211,7 @@
 
         const startDate = getSelectedDate();
 
-        const endDateInput =
-            document.getElementById("leaveEndDate").value;
+        const endDateInput = leaveEndGregorianDate;
 
         const startTime =
             document.getElementById("leaveStartTime").value;

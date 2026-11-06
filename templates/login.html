@@ -1,135 +1,145 @@
+
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en" dir="ltr">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Monitoring | Login</title>
 
-<meta charset="UTF-8">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-<title>Login</title>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, Tahoma, sans-serif;
+            background: #0b1220;
+            color: #ffffff;
+        }
 
-<meta name="viewport" content="width=device-width, initial-scale=1">
+        .login-container {
+            width: 90%;
+            max-width: 400px;
+            padding: 35px;
+            background: #151f30;
+            border: 1px solid #26364c;
+            border-radius: 16px;
+            box-shadow: 0 15px 50px rgba(0,0,0,.35);
+        }
 
-<style>
+        h2 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #60a5fa;
+        }
 
-body{
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
 
-    margin:0;
+        label {
+            display: block;
+            margin: 15px 0 8px;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
 
-    height:100vh;
+        input {
+            width: 100%;
+            padding: 13px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: white;
+            outline: none;
+            font-size: 15px;
+            direction: ltr;
+        }
 
-    display:flex;
+        input:focus {
+            border-color: #3b82f6;
+        }
 
-    justify-content:center;
+        button {
+            width: 100%;
+            margin-top: 25px;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
 
-    align-items:center;
+        button:hover {
+            background: #1d4ed8;
+        }
 
-    background:#0f172a;
+        button:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
 
-    font-family:Tahoma;
-
-}
-
-.container{
-
-    width:450px;
-
-    background:linear-gradient(
-        145deg,
-        #2c2c2c,
-        #1a1a1a
-    );
-
-    padding:40px;
-
-    border-radius:25px;
-
-    box-shadow:
-        0 15px 30px rgba(0,0,0,.6);
-
-}
-
-h1{
-
-    color:white;
-
-    text-align:center;
-
-    margin-bottom:30px;
-
-}
-
-input{
-
-    width:100%;
-
-    box-sizing:border-box;
-
-    padding:15px;
-
-    margin-bottom:20px;
-
-    border:none;
-
-    border-radius:10px;
-
-    font-size:20px;
-
-}
-
-button{
-
-    width:100%;
-
-    padding:15px;
-
-    border:none;
-
-    border-radius:10px;
-
-    font-size:20px;
-
-    cursor:pointer;
-
-}
-
-#message{
-
-    margin-top:20px;
-
-    text-align:center;
-
-    color:#ef4444;
-
-    font-size:18px;
-
-}
-
-</style>
+        #message {
+            margin-top: 18px;
+            text-align: center;
+            font-size: 13px;
+            line-height: 1.8;
+            color: #f87171;
+        }
+    </style>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
 
 </head>
 
 <body>
 
-<div class="container">
+<div class="login-container">
 
-    <h1>Production System</h1>
+    <h2>PRODUCTION MONITORING</h2>
 
-    <input
-        id="username"
-        placeholder="Username"
-    >
+    <div class="subtitle">
+        Production Management System
+    </div>
 
-    <input
-        id="password"
-        type="password"
-        placeholder="Password"
-    >
+    <form id="loginForm">
 
-    <button onclick="login()">
+        <label for="username">Username</label>
 
-        Login
+        <input
+            type="text"
+            id="username"
+            name="username"
+            autocomplete="username"
+            autofocus
+            required
+        >
 
-    </button>
+        <label for="password">Password</label>
+
+        <input
+            type="password"
+            id="password"
+            name="password"
+            autocomplete="current-password"
+            required
+        >
+
+        <button type="submit" id="loginButton">
+            Log In
+        </button>
+
+    </form>
 
     <div id="message"></div>
 
@@ -137,101 +147,177 @@ button{
 
 <script>
 
-async function login(){
+let loginInProgress = false;
+
+async function login() {
+
+    if (loginInProgress) return;
 
     const username =
-        document.getElementById(
-            "username"
-        ).value;
+        document.getElementById("username").value.trim();
 
     const password =
-        document.getElementById(
-            "password"
-        ).value;
+        document.getElementById("password").value;
 
-    const response =
-        await fetch(
-            "/api/login",
-            {
+    const button =
+        document.getElementById("loginButton");
 
-                method:"POST",
+    const message =
+        document.getElementById("message");
 
-                headers:{
-                    "Content-Type":
-                    "application/json"
-                },
+    if (!username || !password) {
+        message.textContent = "Enter your username and password.";
+        return;
+    }
 
-                body:JSON.stringify({
+    loginInProgress = true;
+    sessionStorage.clear();
 
-                    username:
-                        username,
+    button.disabled = true;
+    button.textContent = "Signing in...";
+    message.textContent = "";
 
-                    password:
-                        password
+    try {
 
-                })
+        const response = await fetch("/api/login", {
 
-            }
-        );
+            method: "POST",
 
-    const result =
-        await response.json();
+            headers: {
+                "Content-Type": "application/json"
+            },
 
-    if(result.role === "admin"){
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
 
-        sessionStorage.setItem(
-            "attendance_admin_username",
-            result.username
-        );
+        });
 
-        window.location.href = "/admin";
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.detail || "Incorrect username or password."
+            );
+        }
+
+        sessionStorage.setItem("workflow_username", result.username || username);
+
+        // ADMIN
+        if (result.role === "admin") {
+
+            sessionStorage.setItem(
+                "attendance_admin_username",
+                result.username || username
+            );
+
+            window.location.href = "/admin";
+
+        }
+
+        // DASHBOARD
+        else if (result.role === "dashboard") {
+
+            const adminUsername =
+                result.username || username;
+
+            // Store dashboard session
+            sessionStorage.setItem(
+                "admin_username",
+                adminUsername
+            );
+
+            // Compatibility with admin attendance pages
+            sessionStorage.setItem(
+                "attendance_admin_username",
+                adminUsername
+            );
+
+            window.location.href = "/dashboard";
+
+        }
+
+        // ORDER CODE
+        else if (result.role === "ordercode") {
+
+            window.location.href = "/ordercode";
+
+        }
+
+        // SUPERVISOR
+        else if (result.role === "supervisor") {
+
+            window.location.href =
+                "/supervisor/" +
+                result.line_id +
+                "?username=" +
+                encodeURIComponent(username);
+
+        }
+
+        // OPERATOR
+        else if (result.role === "operator") {
+
+            window.location.href =
+                "/line/" +
+                result.line_id;
+
+        }
+
+        else if (result.role === "technician") {
+            window.location.href = "/repair";
+        }
+
+        else if (result.role === "qc") {
+            window.location.href = "/qc";
+        }
+
+        else {
+
+            throw new Error(
+                "Invalid user role: " + result.role
+            );
+
+        }
 
     }
 
-    else if(
-        result.role === "dashboard"
-    ){
+    catch (error) {
 
-        window.location.href =
-            "/dashboard";
+        console.error("LOGIN ERROR:", error);
 
-    }
+        message.textContent = error.message;
 
-    else if(
-        result.role === "ordercode"
-    ){
-
-        window.location.href =
-            "/ordercode";
-
-    }
-
-    else if (result.role === "supervisor") {
-
-        window.location.href =
-            "/supervisor/" +
-            result.line_id +
-            "?username=" +
-            encodeURIComponent(username);
-
-    }
-
-    else if(
-        result.role === "operator"
-    ){
-
-        window.location.href =
-
-            "/line/" +
-
-            result.line_id;
+        button.disabled = false;
+        button.textContent = "Log In";
+        loginInProgress = false;
 
     }
 
 }
 
+document
+    .getElementById("loginForm")
+    .addEventListener("submit", function(event) {
+
+        event.preventDefault();
+        login();
+
+    });
+
+document
+    .querySelectorAll("#loginForm input")
+    .forEach(function(input) {
+        input.addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                login();
+            }
+        });
+    });
+
 </script>
 
 </body>
-
 </html>

@@ -365,6 +365,17 @@ body {
         rgba(60,140,220,.16);
 }
 
+.dashboard-break-times {
+    margin: 5px 0 8px;
+    padding: 5px 7px;
+    border-radius: 6px;
+    background: rgba(22,54,86,.65);
+    color: #a9c9eb;
+    font-size: 9px;
+    text-align: center;
+    white-space: nowrap;
+}
+
 
 .section-title {
 
@@ -1196,6 +1207,8 @@ body {
 }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+.repair-monitor-frame { width: 100%; height: 620px; border: 1px solid rgba(70,160,255,.28); border-radius: 13px; background: #0b1220; }
+.repair-admin-note { color: #8ca8c8; font-size: 12px; margin: -5px 0 12px; }
 
 .personnel-toolbar {
     display: flex;
@@ -1345,9 +1358,10 @@ body {
     .personnel-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media(max-width:650px) {
-    .dashboard-tabs { display: grid; grid-template-columns: 1fr 1fr; }
+    .dashboard-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .dashboard-tab { padding: 10px 8px; font-size: 11px; }
     .personnel-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .repair-monitor-frame { height: 520px; }
 }
 
 
@@ -1374,6 +1388,8 @@ body {
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
 
 </head>
 
@@ -1419,6 +1435,8 @@ body {
                 onclick="switchDashboardTab('production')">PRODUCTION</button>
         <button class="dashboard-tab" id="personnelTabBtn"
                 onclick="switchDashboardTab('personnel')">PERSONNEL MANAGEMENT</button>
+        <button class="dashboard-tab" id="repairTabBtn"
+                onclick="switchDashboardTab('repair')">REPAIR WORKFLOW</button>
     </div>
 
     <div class="tab-panel active" id="productionTabPanel">
@@ -1603,12 +1621,13 @@ body {
 
         <div class="personnel-toolbar">
             <div class="personnel-field">
-                <label for="personnelLineFilter">PRODUCTION LINE</label>
+                <label for="personnelLineFilter">PRODUCTION LINE OR UNIT</label>
                 <select id="personnelLineFilter" onchange="renderPersonnelDashboard()">
                     <option value="all">ALL LINES</option>
                     <option value="1">LINE 1</option><option value="2">LINE 2</option>
                     <option value="3">LINE 3</option><option value="4">LINE 4</option>
                     <option value="5">LINE 5</option><option value="6">LINE 6</option>
+                    <option value="unit:ADMINISTRATION">ADMINISTRATION</option><option value="unit:SUPPORT">SUPPORT</option>
                 </select>
             </div>
             <div class="personnel-field">
@@ -1635,10 +1654,31 @@ body {
 
         <div class="personnel-panel">
             <div class="personnel-panel-title">EMPLOYEE DIRECTORY</div>
+            <div class="personnel-toolbar">
+                <div class="personnel-field">
+                    <label for="personnelEmployeeSearch">SEARCH EMPLOYEE</label>
+                    <input id="personnelEmployeeSearch" type="search" placeholder="Name or personnel code" oninput="renderPersonnelEmployees(currentPersonnelEmployees)">
+                </div>
+                <div class="personnel-field">
+                    <label for="personnelEmployeeLineFilter">LINE OR UNIT</label>
+                    <select id="personnelEmployeeLineFilter" onchange="renderPersonnelEmployees(currentPersonnelEmployees)">
+                        <option value="all">ALL LINES</option>
+                        <option value="1">LINE 1</option><option value="2">LINE 2</option><option value="3">LINE 3</option>
+                        <option value="4">LINE 4</option><option value="5">LINE 5</option><option value="6">LINE 6</option>
+                        <option value="unit:ADMINISTRATION">ADMINISTRATION</option><option value="unit:SUPPORT">SUPPORT</option>
+                    </select>
+                </div>
+                <div class="personnel-field">
+                    <label for="personnelEmployeeStatusFilter">STATUS</label>
+                    <select id="personnelEmployeeStatusFilter" onchange="renderPersonnelEmployees(currentPersonnelEmployees)">
+                        <option value="all">ALL STATUSES</option><option value="active">ACTIVE</option><option value="inactive">INACTIVE</option>
+                    </select>
+                </div>
+            </div>
             <div class="personnel-table-wrap">
                 <table class="personnel-table">
-                    <thead><tr><th>#</th><th>PERSONNEL CODE</th><th>FULL NAME</th><th>PRODUCTION LINE</th><th>CURRENT STATION</th><th>EMPLOYEE STATUS</th><th>STATION STATUS</th></tr></thead>
-                    <tbody id="personnelEmployeeTable"><tr><td colspan="7" class="personnel-loading">Select this tab to load personnel data.</td></tr></tbody>
+                    <thead><tr><th>#</th><th>PERSONNEL CODE</th><th>FULL NAME</th><th>PRODUCTION LINE / UNIT</th><th>POSITION</th><th>CURRENT STATION</th><th>EMPLOYEE STATUS</th><th>STATION STATUS</th></tr></thead>
+                    <tbody id="personnelEmployeeTable"><tr><td colspan="8" class="personnel-loading">Select this tab to load personnel data.</td></tr></tbody>
                 </table>
             </div>
             <div style="display:flex;justify-content:center;margin-top:13px;">
@@ -1651,10 +1691,69 @@ body {
 
         <div class="personnel-panel">
             <div class="personnel-panel-title">LEAVE STATISTICS & DETAILS</div>
+            <div class="personnel-toolbar">
+                <div class="personnel-field">
+                    <label for="personnelLeaveSearch">SEARCH EMPLOYEE</label>
+                    <input id="personnelLeaveSearch" type="search" placeholder="Name or personnel code" oninput="renderPersonnelLeaves(currentPersonnelLeaves)">
+                </div>
+                <div class="personnel-field">
+                    <label for="personnelLeaveLineFilter">LINE OR UNIT</label>
+                    <select id="personnelLeaveLineFilter" onchange="renderPersonnelLeaves(currentPersonnelLeaves)">
+                        <option value="all">ALL LINES</option>
+                        <option value="1">LINE 1</option><option value="2">LINE 2</option><option value="3">LINE 3</option>
+                        <option value="4">LINE 4</option><option value="5">LINE 5</option><option value="6">LINE 6</option>
+                        <option value="unit:ADMINISTRATION">ADMINISTRATION</option><option value="unit:SUPPORT">SUPPORT</option>
+                    </select>
+                </div>
+                <div class="personnel-field">
+                    <label for="personnelLeaveTypeFilter">LEAVE TYPE</label>
+                    <select id="personnelLeaveTypeFilter" onchange="renderPersonnelLeaves(currentPersonnelLeaves)">
+                        <option value="all">ALL TYPES</option><option value="DAILY">FULL DAY</option>
+                        <option value="HOURLY">HOURLY</option><option value="SICK">SICK LEAVE</option>
+                    </select>
+                </div>
+            </div>
             <div class="personnel-table-wrap">
                 <table class="personnel-table">
-                    <thead><tr><th>#</th><th>PERSONNEL CODE</th><th>EMPLOYEE NAME</th><th>LINE</th><th>LEAVE TYPE</th><th>START DATE</th><th>END DATE</th><th>TIME</th><th>DESCRIPTION</th></tr></thead>
+                    <thead><tr><th>#</th><th>PERSONNEL CODE</th><th>EMPLOYEE NAME</th><th>LINE / UNIT</th><th>LEAVE TYPE</th><th>START DATE</th><th>END DATE</th><th>TIME</th><th>DESCRIPTION</th></tr></thead>
                     <tbody id="personnelLeaveTable"><tr><td colspan="9" class="personnel-loading">Leave details will appear here.</td></tr></tbody>
+                </table>
+            </div>
+            <div style="display:flex;justify-content:center;margin-top:13px;">
+                <button type="button" class="personnel-refresh" id="personnelLeaveShowAllBtn"
+                        onclick="togglePersonnelShowAllLeaves()" style="display:none;">
+                    SHOW ALL LEAVE RECORDS
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-panel" id="repairTabPanel">
+        <div class="personnel-panel">
+            <div class="personnel-panel-title">LIVE REPAIR QUEUE MONITOR</div>
+            <div class="repair-admin-note">Live updates across all production lines · queue counts and totals</div>
+            <iframe class="repair-monitor-frame" src="/repair/monitor" title="Live repair queue monitor" loading="lazy"></iframe>
+        </div>
+        <div class="personnel-panel">
+            <div class="personnel-panel-title">SERIAL REPAIR TIMELINE</div>
+            <div class="personnel-toolbar">
+                <div class="personnel-field">
+                    <label for="repairSerialFilter">SEARCH SERIAL</label>
+                    <input id="repairSerialFilter" type="search" placeholder="Enter serial number" oninput="scheduleRepairTimelineSearch()">
+                </div>
+                <div class="personnel-field">
+                    <label for="repairLineFilter">PRODUCTION LINE</label>
+                    <select id="repairLineFilter" onchange="loadRepairTimeline()">
+                        <option value="all">ALL LINES</option>
+                    </select>
+                </div>
+                <button class="personnel-refresh" onclick="loadRepairTimeline()">REFRESH TIMELINE</button>
+                <span id="repairTimelineUpdated" class="personnel-show-all-note"></span>
+            </div>
+            <div class="personnel-table-wrap">
+                <table class="personnel-table">
+                    <thead><tr><th>SERIAL NUMBER</th><th>ASSEMBLY LINE</th><th>REPAIR QUEUE TIME</th><th>REPAIR START TIME</th><th>SENT TO QC TIME</th><th>EXIT QUEUE TIME</th><th>RETURNED TO LINE TIME</th></tr></thead>
+                    <tbody id="repairTimelineTable"><tr><td colspan="7" class="personnel-loading">Open this tab to load repair records.</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -1674,15 +1773,11 @@ function updateClock() {
 
     const now = new Date();
 
-    document.getElementById(
-        "clock"
-    ).textContent =
-        now.toLocaleTimeString(
-            "en-US",
-            {
-                hour12: true
-            }
-        );
+    document.getElementById("clock").textContent =
+        new Intl.DateTimeFormat("en-US-u-ca-persian", {
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
+        }).format(now);
 
 }
 
@@ -1881,6 +1976,10 @@ function renderLines(data) {
 
                 </div>
 
+                <div class="dashboard-break-times">
+                    Tea Time: ${line.tea_time || "Not set"} &nbsp; | &nbsp; Lunch Time: ${line.lunch_time || "Not set"}
+                </div>
+
 
                 <div class="products">
 
@@ -1963,6 +2062,10 @@ function renderLines(data) {
 
                     📦 PACK
 
+                </div>
+
+                <div class="dashboard-break-times">
+                    Tea Time: ${line.tea_time || "Not set"} &nbsp; | &nbsp; Lunch Time: ${line.lunch_time || "Not set"}
                 </div>
 
 
@@ -2663,17 +2766,110 @@ let personnelDashboardLoaded = false;
 let personnelDashboardData = { employees: [], leaves: [] };
 let personnelDashboardLoading = false;
 let personnelShowAllEmployees = false;
+let personnelShowAllLeaves = false;
+let currentPersonnelEmployees = [];
+let currentPersonnelLeaves = [];
 let personnelStartGregorian = null;
 let personnelEndGregorian = null;
 
 function switchDashboardTab(tabName) {
     const production = tabName === "production";
+    const personnel = tabName === "personnel";
+    const repair = tabName === "repair";
     document.getElementById("productionTabPanel").classList.toggle("active", production);
-    document.getElementById("personnelTabPanel").classList.toggle("active", !production);
+    document.getElementById("personnelTabPanel").classList.toggle("active", personnel);
+    document.getElementById("repairTabPanel").classList.toggle("active", repair);
     document.getElementById("productionTabBtn").classList.toggle("active", production);
-    document.getElementById("personnelTabBtn").classList.toggle("active", !production);
-    if (!production && !personnelDashboardLoaded) initializePersonnelDashboard();
+    document.getElementById("personnelTabBtn").classList.toggle("active", personnel);
+    document.getElementById("repairTabBtn").classList.toggle("active", repair);
+    if (personnel && !personnelDashboardLoaded) initializePersonnelDashboard();
+    if (repair && !repairDashboardLoaded) loadRepairTimeline();
 }
+
+let repairDashboardLoaded = false;
+let repairDashboardLoading = false;
+let repairTimelineRows = [];
+let repairTimelineSearchTimer = null;
+
+function repairEscape(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    })[ch]);
+}
+
+function formatRepairTime(value) {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return repairEscape(value);
+    const parts = new Intl.DateTimeFormat("en-US-u-ca-persian", {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
+    }).formatToParts(parsed).reduce((result, part) => {
+        if (part.type !== "era") result[part.type] = part.value;
+        return result;
+    }, {});
+    return `${parts.year}/${parts.month}/${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+function formatRepairSolarNow() {
+    return formatRepairTime(new Date());
+}
+
+async function loadRepairTimeline() {
+    if (repairDashboardLoading) return;
+    const adminUsername = sessionStorage.getItem("attendance_admin_username");
+    const tbody = document.getElementById("repairTimelineTable");
+    if (!adminUsername) {
+        tbody.innerHTML = '<tr><td colspan="7" class="personnel-loading">Admin session not found. Sign in again through the main login page.</td></tr>';
+        return;
+    }
+    repairDashboardLoading = true;
+    try {
+        const params = new URLSearchParams({admin_username: adminUsername});
+        const serialFilter = document.getElementById("repairSerialFilter").value.trim();
+        const lineFilter = document.getElementById("repairLineFilter").value;
+        if (serialFilter) params.set("serial_number", serialFilter);
+        if (lineFilter !== "all") params.set("line_id", lineFilter);
+        const response = await fetch(`/api/admin/repair-dashboard?${params.toString()}`, {cache: "no-store"});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+        const lineSelect = document.getElementById("repairLineFilter");
+        const selectedLine = lineSelect.value;
+        lineSelect.innerHTML = '<option value="all">ALL LINES</option>' + (result.lines || []).map(line =>
+            `<option value="${repairEscape(line.line_id)}">${repairEscape(line.line_name)}</option>`
+        ).join("");
+        lineSelect.value = (result.lines || []).some(line => String(line.line_id) === selectedLine) ? selectedLine : "all";
+        repairTimelineRows = result.serials || [];
+        repairDashboardLoaded = true;
+        renderRepairTimeline();
+        document.getElementById("repairTimelineUpdated").textContent = `Updated ${formatRepairSolarNow()} · ${repairTimelineRows.length} serials`;
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="7" class="personnel-loading">${repairEscape(error.message || "Could not load repair records")}</td></tr>`;
+    } finally {
+        repairDashboardLoading = false;
+    }
+}
+
+function scheduleRepairTimelineSearch() {
+    clearTimeout(repairTimelineSearchTimer);
+    repairTimelineSearchTimer = setTimeout(loadRepairTimeline, 350);
+}
+
+function renderRepairTimeline() {
+    const query = (document.getElementById("repairSerialFilter")?.value || "").trim().toLowerCase();
+    const filtered = repairTimelineRows.filter(row => !query || String(row.serial_number || "").toLowerCase().includes(query));
+    const tbody = document.getElementById("repairTimelineTable");
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="personnel-loading">No matching serials.</td></tr>';
+        return;
+    }
+    const times = values => values?.length ? values.map(formatRepairTime).map(repairEscape).join("<br>") : "Not found";
+    tbody.innerHTML = filtered.map(row => `<tr><td>${repairEscape(row.serial_number)}</td><td>${repairEscape(row.line_name)}</td><td>${times(row.repair_queue_times)}</td><td>${times(row.repair_started_times)}</td><td>${times(row.sent_to_qc_times)}</td><td>${times(row.exit_queue_times)}</td><td>${times(row.returned_to_line_times)}</td></tr>`).join("");
+}
+
+setInterval(() => {
+    if (repairDashboardLoaded && document.getElementById("repairTabPanel").classList.contains("active")) loadRepairTimeline();
+}, 10000);
 
 function personnelEscape(value) {
     return String(value ?? "").replace(/[&<>"']/g, ch => ({
@@ -2704,7 +2900,32 @@ function formatPersonnelDate(value) {
     if (!value) return "-";
     const normalized = convertPersonnelDigitsToEnglish(value);
     const parts = normalized.split("-");
-    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : personnelEscape(normalized);
+    if (parts.length !== 3) return personnelEscape(normalized);
+    const [year, month, day] = parts.map(Number);
+    if (![year, month, day].every(Number.isFinite)) return personnelEscape(normalized);
+    const localDate = new Date(year, month - 1, day, 12);
+    if (typeof persianDate !== "undefined") {
+        return new persianDate(localDate.getTime()).toCalendar("persian").format("YYYY/MM/DD");
+    }
+    const jalaliParts = new Intl.DateTimeFormat("en-US-u-ca-persian", {
+        year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(localDate).reduce((result, part) => {
+        if (part.type !== "era") result[part.type] = part.value;
+        return result;
+    }, {});
+    return `${jalaliParts.year}/${jalaliParts.month}/${jalaliParts.day}`;
+}
+
+function formatPersonnelDateWithWeekday(value) {
+    if (!value) return "-";
+    const normalized = convertPersonnelDigitsToEnglish(value);
+    const parts = normalized.split("-");
+    if (parts.length !== 3) return personnelEscape(normalized);
+    const [year, month, day] = parts.map(Number);
+    if (![year, month, day].every(Number.isFinite)) return personnelEscape(normalized);
+    const localDate = new Date(year, month - 1, day, 12);
+    const weekday = new Intl.DateTimeFormat("en-US-u-ca-persian", {weekday: "long"}).format(localDate);
+    return `${weekday} · ${formatPersonnelDate(normalized)}`;
 }
 
 function leaveTypeLabel(type) {
@@ -2820,11 +3041,14 @@ async function loadPersonnelDashboard() {
 
 function renderPersonnelDashboard() {
     personnelShowAllEmployees = false;
+    personnelShowAllLeaves = false;
     const selectedLine = document.getElementById("personnelLineFilter").value;
     const allEmployees = personnelDashboardData.employees || [];
     const allLeaves = personnelDashboardData.leaves || [];
-    const employees = selectedLine === "all" ? allEmployees : allEmployees.filter(x => Number(x.line_id) === Number(selectedLine));
-    const leaves = selectedLine === "all" ? allLeaves : allLeaves.filter(x => Number(x.line_id) === Number(selectedLine));
+    const employees = allEmployees.filter(x => personnelMatchesLineOrUnit(x, selectedLine));
+    const leaves = allLeaves.filter(x => personnelMatchesLineOrUnit(x, selectedLine));
+    currentPersonnelEmployees = employees;
+    currentPersonnelLeaves = leaves;
     const active = employees.filter(x => Number(x.is_active) === 1).length;
     const assigned = employees.filter(x => Number(x.is_active) === 1 && Boolean(x.station_name)).length;
     const uniqueOnLeave = new Set(leaves.map(x => x.employee_id)).size;
@@ -2844,34 +3068,45 @@ function renderPersonnelDashboard() {
     renderPersonnelLeaves(leaves);
 }
 
+function personnelMatchesLineOrUnit(record, selection) {
+    if (selection === "all") return true;
+    if (selection.startsWith("unit:")) return record.unit === selection.slice(5);
+    return String(record.line_id ?? "") === selection;
+}
+
 function togglePersonnelShowAll() {
     personnelShowAllEmployees = !personnelShowAllEmployees;
-    const selectedLine = document.getElementById("personnelLineFilter").value;
-    const allEmployees = personnelDashboardData.employees || [];
-    const filtered = selectedLine === "all"
-        ? allEmployees
-        : allEmployees.filter(x => Number(x.line_id) === Number(selectedLine));
-    renderPersonnelEmployees(filtered);
+    renderPersonnelEmployees(currentPersonnelEmployees);
 }
 
 function renderPersonnelEmployees(employees) {
     const tbody = document.getElementById("personnelEmployeeTable");
     const showAllButton = document.getElementById("personnelShowAllBtn");
-    const visibleEmployees = personnelShowAllEmployees ? employees : employees.slice(0, 5);
+    const search = (document.getElementById("personnelEmployeeSearch")?.value || "").trim().toLowerCase();
+    const line = document.getElementById("personnelEmployeeLineFilter")?.value || "all";
+    const status = document.getElementById("personnelEmployeeStatusFilter")?.value || "all";
+    const filteredEmployees = (employees || []).filter(employee => {
+        const matchesSearch = !search || `${employee.full_name || ""} ${employee.personnel_code || ""}`.toLowerCase().includes(search);
+        const matchesLine = personnelMatchesLineOrUnit(employee, line);
+        const active = Number(employee.is_active) === 1;
+        const matchesStatus = status === "all" || (status === "active" ? active : !active);
+        return matchesSearch && matchesLine && matchesStatus;
+    });
+    const visibleEmployees = personnelShowAllEmployees ? filteredEmployees : filteredEmployees.slice(0, 5);
 
     if (showAllButton) {
-        if (employees.length > 5) {
+        if (filteredEmployees.length > 5) {
             showAllButton.style.display = "inline-block";
             showAllButton.textContent = personnelShowAllEmployees
                 ? "SHOW FIRST 5"
-                : `SHOW ALL PERSONNEL (${employees.length})`;
+                : `SHOW ALL PERSONNEL (${filteredEmployees.length})`;
         } else {
             showAllButton.style.display = "none";
             personnelShowAllEmployees = false;
         }
     }
-    if (!employees.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="personnel-empty">No personnel found.</td></tr>`;
+    if (!filteredEmployees.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="personnel-empty">No personnel found.</td></tr>`;
         return;
     }
     tbody.innerHTML = visibleEmployees.map((e, i) => {
@@ -2881,6 +3116,7 @@ function renderPersonnelEmployees(employees) {
             <td>${i + 1}</td><td>${personnelEscape(e.personnel_code || "-")}</td>
             <td>${personnelEscape(e.full_name || "-")}</td>
             <td>${personnelEscape(e.line_name || `LINE ${e.line_id}`)}</td>
+            <td>${personnelEscape(e.position || "STAFF")}</td>
             <td>${personnelEscape(e.station_name || "NOT ASSIGNED")}</td>
             <td><span class="personnel-pill ${active ? "active" : "inactive"}">${active ? "ACTIVE" : "INACTIVE"}</span></td>
             <td><span class="personnel-pill ${assigned ? "assigned" : "unassigned"}">${assigned ? "ASSIGNED" : "NOT ASSIGNED"}</span></td>
@@ -2890,11 +3126,33 @@ function renderPersonnelEmployees(employees) {
 
 function renderPersonnelLeaves(leaves) {
     const tbody = document.getElementById("personnelLeaveTable");
-    if (!leaves.length) {
+    const showAllButton = document.getElementById("personnelLeaveShowAllBtn");
+    const search = (document.getElementById("personnelLeaveSearch")?.value || "").trim().toLowerCase();
+    const line = document.getElementById("personnelLeaveLineFilter")?.value || "all";
+    const type = document.getElementById("personnelLeaveTypeFilter")?.value || "all";
+    const filteredLeaves = (leaves || []).filter(leave => {
+        const matchesSearch = !search || `${leave.employee_name || ""} ${leave.personnel_code || ""}`.toLowerCase().includes(search);
+        const matchesLine = personnelMatchesLineOrUnit(leave, line);
+        const matchesType = type === "all" || String(leave.leave_type || "").toUpperCase() === type;
+        return matchesSearch && matchesLine && matchesType;
+    });
+    const visibleLeaves = personnelShowAllLeaves ? filteredLeaves : filteredLeaves.slice(0, 5);
+    if (showAllButton) {
+        if (filteredLeaves.length > 5) {
+            showAllButton.style.display = "inline-block";
+            showAllButton.textContent = personnelShowAllLeaves
+                ? "SHOW FIRST 5 LEAVE RECORDS"
+                : `SHOW ALL LEAVE RECORDS (${filteredLeaves.length})`;
+        } else {
+            showAllButton.style.display = "none";
+            personnelShowAllLeaves = false;
+        }
+    }
+    if (!filteredLeaves.length) {
         tbody.innerHTML = `<tr><td colspan="9" class="personnel-empty">No leave records in the selected period.</td></tr>`;
         return;
     }
-    tbody.innerHTML = leaves.map((l, i) => {
+    tbody.innerHTML = visibleLeaves.map((l, i) => {
         const time = String(l.leave_type).toUpperCase() === "HOURLY"
             ? `${personnelEscape(l.start_time || "-")} - ${personnelEscape(l.end_time || "-")}` : "-";
         return `<tr>
@@ -2902,10 +3160,15 @@ function renderPersonnelLeaves(leaves) {
             <td>${personnelEscape(l.employee_name || "-")}</td>
             <td>${personnelEscape(l.line_name || `LINE ${l.line_id}`)}</td>
             <td><span class="personnel-pill ${leaveTypeClass(l.leave_type)}">${personnelEscape(leaveTypeLabel(l.leave_type))}</span></td>
-            <td>${formatPersonnelDate(l.start_date)}</td><td>${formatPersonnelDate(l.end_date || l.start_date)}</td>
+            <td>${formatPersonnelDateWithWeekday(l.start_date)}</td><td>${formatPersonnelDateWithWeekday(l.end_date || l.start_date)}</td>
             <td>${time}</td><td>${personnelEscape(l.notes || "-")}</td>
         </tr>`;
     }).join("");
+}
+
+function togglePersonnelShowAllLeaves() {
+    personnelShowAllLeaves = !personnelShowAllLeaves;
+    renderPersonnelLeaves(currentPersonnelLeaves);
 }
 
 

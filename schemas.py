@@ -62,11 +62,31 @@ class AssemblyStatusCreate(BaseModel):
     status: str
     repair_reason: str | None = None
 
+
+class RepairWorkflowAction(BaseModel):
+    line_id: int
+    serial_number: str
+    username: str
+
+
+class QualityControlReview(BaseModel):
+    line_id: int
+    serial_number: str
+    username: str
+    approved: bool
+    note: str | None = None
+
 class LineStatusUpdate(BaseModel):
     status: str
+    reason: str | None = None
 
 class ProductNameUpdate(BaseModel):
     product_name: str
+
+class LineBreakTimesUpdate(BaseModel):
+    username: str
+    tea_time: time | None = None
+    lunch_time: time | None = None
 
 from datetime import date
 from pydantic import BaseModel
@@ -102,32 +122,18 @@ class AdminEmployeeCreate(BaseModel):
     admin_username: str
     personnel_code: str
     full_name: str
-    line_id: int
+    line_id: int | None = None
+    unit: str | None = None
+    position: str = "STAFF"
 
 
 class AdminEmployeeUpdate(BaseModel):
     admin_username: str
     personnel_code: str
     full_name: str
-    line_id: int
-
-
-class AdminEmployeeStatus(BaseModel):
-    admin_username: str
-    is_active: int
-
-class AdminEmployeeCreate(BaseModel):
-    admin_username: str
-    personnel_code: str
-    full_name: str
-    line_id: int
-
-
-class AdminEmployeeUpdate(BaseModel):
-    admin_username: str
-    personnel_code: str
-    full_name: str
-    line_id: int
+    line_id: int | None = None
+    unit: str | None = None
+    position: str = "STAFF"
 
 
 class AdminEmployeeStatus(BaseModel):
@@ -157,4 +163,15 @@ class LeaveCreate(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
 
+    notes: str | None = None
+
+
+class AdminLeaveCreate(BaseModel):
+    admin_username: str
+    employee_id: int
+    leave_type: str
+    start_date: date
+    end_date: date | None = None
+    start_time: time | None = None
+    end_time: time | None = None
     notes: str | None = None

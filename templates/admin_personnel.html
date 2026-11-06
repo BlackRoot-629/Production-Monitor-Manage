@@ -323,6 +323,8 @@
             }
         }
     </style>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+
 </head>
 
 <body>
@@ -408,15 +410,26 @@
                     </div>
 
                     <div class="field">
-                        <label>Production Line</label>
+                        <label>Production Line or Personnel Unit</label>
                         <select id="employeeLine" required>
-                            <option value="">Select Line</option>
-                            <option value="1">Line 1</option>
-                            <option value="2">Line 2</option>
-                            <option value="3">Line 3</option>
-                            <option value="4">Line 4</option>
-                            <option value="5">Line 5</option>
-                            <option value="6">Line 6</option>
+                            <option value="">Select line or unit</option>
+                            <option value="line:1">Line 1</option>
+                            <option value="line:2">Line 2</option>
+                            <option value="line:3">Line 3</option>
+                            <option value="line:4">Line 4</option>
+                            <option value="line:5">Line 5</option>
+                            <option value="line:6">Line 6</option>
+                            <option value="unit:ADMINISTRATION">Administration</option>
+                            <option value="unit:SUPPORT">Support</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label>Position</label>
+                        <select id="employeePosition" required>
+                            <option value="STAFF">Staff</option>
+                            <option value="SUPERVISOR">Supervisor</option>
+                            <option value="LOADING">Loading</option>
                         </select>
                     </div>
 
@@ -540,15 +553,17 @@
                 <div class="toolbar-left">
 
                     <div class="field">
-                        <label>Filter by Line</label>
+                        <label>Filter by Line or Unit</label>
                         <select id="lineFilter" onchange="loadEmployees()">
-                            <option value="">All Lines</option>
+                            <option value="">All Lines and Units</option>
                             <option value="1">Line 1</option>
                             <option value="2">Line 2</option>
                             <option value="3">Line 3</option>
                             <option value="4">Line 4</option>
                             <option value="5">Line 5</option>
                             <option value="6">Line 6</option>
+                            <option value="unit:ADMINISTRATION">Administration</option>
+                            <option value="unit:SUPPORT">Support</option>
                         </select>
                     </div>
 
@@ -583,7 +598,8 @@
                             <th>#</th>
                             <th>Personnel Code</th>
                             <th>Full Name</th>
-                            <th>Production Line</th>
+                            <th>Production Line / Unit</th>
+                            <th>Position</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -592,7 +608,7 @@
                     <tbody id="employeeTable">
 
                         <tr>
-                            <td colspan="6" class="empty">
+                            <td colspan="7" class="empty">
                                 No data loaded.
                             </td>
                         </tr>
@@ -603,6 +619,22 @@
 
             </div>
 
+        </div>
+
+        <div class="card">
+            <div class="card-title">Administration & Support Leave</div>
+            <form id="personnelLeaveForm">
+                <div class="form-grid">
+                    <div class="field"><label>Employee</label><select id="personnelLeaveEmployee" required><option value="">Select employee</option></select></div>
+                    <div class="field"><label>Leave Type</label><select id="personnelLeaveType" required><option value="DAILY">Full Day</option><option value="HOURLY">Hourly</option><option value="SICK">Sick Leave</option></select></div>
+                    <div class="field"><label>Start Date</label><input id="personnelLeaveStart" type="date" required></div>
+                    <div class="field"><label>End Date</label><input id="personnelLeaveEnd" type="date"></div>
+                    <div class="field" id="personnelLeaveStartTimeField" style="display:none"><label>Start Time</label><input id="personnelLeaveStartTime" type="time"></div>
+                    <div class="field" id="personnelLeaveEndTimeField" style="display:none"><label>End Time</label><input id="personnelLeaveEndTime" type="time"></div>
+                    <div class="field"><label>Notes</label><input id="personnelLeaveNotes" maxlength="500"></div>
+                </div>
+                <button class="btn-primary" id="personnelLeaveSubmit" type="submit">ADD LEAVE</button>
+            </form>
         </div>
 
     </div>
@@ -632,14 +664,25 @@
         </div>
 
         <div class="field">
-            <label>Production Line</label>
+            <label>Production Line or Personnel Unit</label>
             <select id="editLine">
-                <option value="1">Line 1</option>
-                <option value="2">Line 2</option>
-                <option value="3">Line 3</option>
-                <option value="4">Line 4</option>
-                <option value="5">Line 5</option>
-                <option value="6">Line 6</option>
+                <option value="line:1">Line 1</option>
+                <option value="line:2">Line 2</option>
+                <option value="line:3">Line 3</option>
+                <option value="line:4">Line 4</option>
+                <option value="line:5">Line 5</option>
+                <option value="line:6">Line 6</option>
+                <option value="unit:ADMINISTRATION">Administration</option>
+                <option value="unit:SUPPORT">Support</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Position</label>
+            <select id="editPosition">
+                <option value="STAFF">Staff</option>
+                <option value="SUPERVISOR">Supervisor</option>
+                <option value="LOADING">Loading</option>
             </select>
         </div>
 
@@ -806,6 +849,7 @@ async function initializeAdminPage() {
 
         await loadEmployees();
         await loadStations();
+        await loadPersonnelLeaveEmployees();
 
     } catch (error) {
 
@@ -815,6 +859,66 @@ async function initializeAdminPage() {
 
     }
 }
+
+async function loadPersonnelLeaveEmployees() {
+    const select = document.getElementById("personnelLeaveEmployee");
+    try {
+        const [administration, support] = await Promise.all([
+            apiRequest(`/api/admin/employees?${adminQuery()}&unit=ADMINISTRATION`),
+            apiRequest(`/api/admin/employees?${adminQuery()}&unit=SUPPORT`)
+        ]);
+        const staff = [...(administration.employees || []), ...(support.employees || [])]
+            .filter(employee => Number(employee.is_active) === 1)
+            .sort((a, b) => a.full_name.localeCompare(b.full_name));
+        select.innerHTML = '<option value="">Select employee</option>' + staff.map(employee =>
+            `<option value="${employee.id}">${escapeHtml(employee.full_name)} (${escapeHtml(employee.unit === "SUPPORT" ? "Support" : "Administration")})</option>`
+        ).join("");
+    } catch (error) {
+        showMessage(error.message, "error");
+    }
+}
+
+document.getElementById("personnelLeaveType").addEventListener("change", function() {
+    const hourly = this.value === "HOURLY";
+    document.getElementById("personnelLeaveStartTimeField").style.display = hourly ? "block" : "none";
+    document.getElementById("personnelLeaveEndTimeField").style.display = hourly ? "block" : "none";
+    document.getElementById("personnelLeaveStartTime").required = hourly;
+    document.getElementById("personnelLeaveEndTime").required = hourly;
+});
+
+document.getElementById("personnelLeaveForm").addEventListener("submit", async function(event) {
+    event.preventDefault();
+    const type = document.getElementById("personnelLeaveType").value;
+    const startDate = document.getElementById("personnelLeaveStart").value;
+    const endDate = document.getElementById("personnelLeaveEnd").value || startDate;
+    const button = document.getElementById("personnelLeaveSubmit");
+    const payload = {
+        admin_username: adminUsername,
+        employee_id: Number(document.getElementById("personnelLeaveEmployee").value),
+        leave_type: type,
+        start_date: startDate,
+        end_date: endDate,
+        start_time: type === "HOURLY" ? document.getElementById("personnelLeaveStartTime").value : null,
+        end_time: type === "HOURLY" ? document.getElementById("personnelLeaveEndTime").value : null,
+        notes: document.getElementById("personnelLeaveNotes").value.trim() || null
+    };
+    button.disabled = true;
+    try {
+        await apiRequest("/api/admin/personnel-leaves", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        this.reset();
+        document.getElementById("personnelLeaveStartTimeField").style.display = "none";
+        document.getElementById("personnelLeaveEndTimeField").style.display = "none";
+        showMessage("Leave recorded successfully.");
+    } catch (error) {
+        showMessage(error.message, "error");
+    } finally {
+        button.disabled = false;
+    }
+});
 
 
 // ==========================================
@@ -832,7 +936,9 @@ async function loadEmployees() {
         let url =
             `/api/admin/employees?${adminQuery()}`;
 
-        if (lineId) {
+        if (lineId.startsWith("unit:")) {
+            url += `&unit=${encodeURIComponent(lineId.slice(5))}`;
+        } else if (lineId) {
             url += `&line_id=${encodeURIComponent(lineId)}`;
         }
 
@@ -1101,7 +1207,7 @@ function renderEmployees() {
 
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="empty">
+                <td colspan="7" class="empty">
                     No employees found.
                 </td>
             </tr>
@@ -1129,9 +1235,15 @@ function renderEmployees() {
 
                 <td>
                     ${escapeHtml(
-                        LINE_NAMES[employee.line_id] || "Unknown"
+                    employee.unit === "ADMINISTRATION"
+                        ? "Administration"
+                        : employee.unit === "SUPPORT"
+                            ? "Support"
+                            : LINE_NAMES[employee.line_id] || "Unknown"
                     )}
                 </td>
+
+                <td>${escapeHtml(employee.position || "STAFF")}</td>
 
                 <td>
                     ${
@@ -1222,11 +1334,11 @@ document.getElementById("employeeForm")
             "fullName"
         ).value.trim();
 
-        const lineId = Number(
-            document.getElementById("employeeLine").value
-        );
+        const assignment = document.getElementById("employeeLine").value;
+        const [assignmentType, assignmentValue] = assignment.split(":");
+        const position = document.getElementById("employeePosition").value;
 
-        if (!personnelCode || !fullName || !lineId) {
+        if (!personnelCode || !fullName || !assignment) {
 
             showMessage(
                 "Please complete all employee fields.",
@@ -1258,7 +1370,9 @@ document.getElementById("employeeForm")
 
                         full_name: fullName,
 
-                        line_id: lineId
+                        line_id: assignmentType === "line" ? Number(assignmentValue) : null,
+                        unit: assignmentType === "unit" ? assignmentValue : null,
+                        position
 
                     })
                 }
@@ -1315,7 +1429,11 @@ function openEditModal(employeeId) {
 
     document.getElementById(
         "editLine"
-    ).value = employee.line_id;
+    ).value = employee.unit
+        ? `unit:${employee.unit}`
+        : `line:${employee.line_id}`;
+
+    document.getElementById("editPosition").value = employee.position || "STAFF";
 
     document.getElementById(
         "editModal"
@@ -1355,11 +1473,11 @@ async function updateEmployee() {
         "editFullName"
     ).value.trim();
 
-    const lineId = Number(
-        document.getElementById("editLine").value
-    );
+    const assignment = document.getElementById("editLine").value;
+    const [assignmentType, assignmentValue] = assignment.split(":");
+    const position = document.getElementById("editPosition").value;
 
-    if (!personnelCode || !fullName || !lineId) {
+    if (!personnelCode || !fullName || !assignment) {
 
         showMessage(
             "Please complete all fields.",
@@ -1391,7 +1509,9 @@ async function updateEmployee() {
 
                     full_name: fullName,
 
-                    line_id: lineId
+                    line_id: assignmentType === "line" ? Number(assignmentValue) : null,
+                    unit: assignmentType === "unit" ? assignmentValue : null,
+                    position
 
                 })
             }

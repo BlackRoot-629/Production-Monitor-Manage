@@ -108,6 +108,32 @@ h1{
     margin-bottom: 10px;
 }
 
+.break-times {
+    margin: 6px 0 18px;
+    padding: 12px;
+    border: 1px solid rgba(96,165,250,.35);
+    border-radius: 12px;
+    background: #172554;
+    color: #bfdbfe;
+    text-align: center;
+    font-size: 25px;
+    font-weight: bold;
+}
+.break-alert {
+    display: none;
+    margin: 8px 0 14px;
+    padding: 16px;
+    border-radius: 14px;
+    background: linear-gradient(135deg,#eab308,#ca8a04);
+    color: #111827;
+    text-align: center;
+    font-size: clamp(36px,5vw,64px);
+    font-weight: 900;
+    letter-spacing: 1px;
+    box-shadow: 0 0 28px rgba(234,179,8,.45);
+}
+.break-alert.active { display: block; }
+
 #productName {
 
     padding: 12px 35px;
@@ -133,6 +159,8 @@ h1{
 
 </style>
 
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+
 </head>
 
 <body>
@@ -149,6 +177,7 @@ h1{
 
 </div>
 
+<div class="break-alert" id="breakAlert" aria-live="assertive"></div>
 <div class="row">
 
 
@@ -276,6 +305,8 @@ async function loadData(){
         ? "PRODUCT: " + data.product_name
         : "PRODUCT: -";
 
+    updateBreakAlert(data.tea_time, data.lunch_time);
+
     document.getElementById("aio").innerText =
         data.aio;
 
@@ -290,7 +321,7 @@ async function loadData(){
 
     document.getElementById("actual").innerText =
         data.actual_count;
-    
+
     document.getElementById("aioEquivalent").innerText =
         data.aio_equivalent;
 
@@ -345,6 +376,29 @@ async function loadData(){
 
     }
 
+}
+
+function isInBreakWindow(startTime, durationMinutes) {
+    if (!startTime || !/^\d{2}:\d{2}$/.test(startTime)) return false;
+    const [hour, minute] = startTime.split(":").map(Number);
+    const start = hour * 60 + minute;
+    const now = new Date();
+    const current = now.getHours() * 60 + now.getMinutes();
+    return (current - start + 1440) % 1440 < durationMinutes;
+}
+
+function updateBreakAlert(teaTime, lunchTime) {
+    const alert = document.getElementById("breakAlert");
+    if (isInBreakWindow(lunchTime, 45)) {
+        alert.textContent = "🍽 LUNCH TIME 🍽";
+        alert.classList.add("active");
+    } else if (isInBreakWindow(teaTime, 15)) {
+        alert.textContent = "☕ TEA TIME ☕";
+        alert.classList.add("active");
+    } else {
+        alert.textContent = "";
+        alert.classList.remove("active");
+    }
 }
 
 loadData();

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repair Workflow Monitor</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#151f2e;--line:#2d3a4c;--muted:#9aa9bd;--text:#f3f6fb;--blue:#60a5fa;--amber:#fbbf24;--violet:#c084fc;--green:#4ade80}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Tahoma,sans-serif;min-height:100vh;padding:24px}.page{max-width:1800px;margin:auto}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:22px}h1{font-size:clamp(24px,3vw,38px);margin:0;color:#e5efff}.sub{color:var(--muted);margin-top:7px}.updated{color:var(--muted);font-size:14px;text-align:right}.updated:before{content:"";display:inline-block;width:9px;height:9px;margin-right:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}.updated.error:before{background:#f87171;box-shadow:0 0 10px #f87171}.totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;min-height:112px}.card span{color:var(--muted);font-size:15px}.card strong{display:block;font-size:40px;margin-top:8px}.card.repair strong{color:var(--blue)}.card.working strong{color:var(--amber)}.card.qc strong{color:var(--violet)}.card.exit strong{color:var(--green)}.section-title{font-size:21px;margin:0 0 12px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel)}table{width:100%;border-collapse:collapse;min-width:820px}th{background:#202c3d;color:#c6d2e2;text-align:left;padding:17px 18px;font-size:15px;white-space:nowrap}td{padding:18px;border-top:1px solid #263345;font-size:18px}tbody tr:hover{background:#1b2839}.line-name{font-weight:700}.num{text-align:center;font-size:23px;font-weight:700}.repair-num{color:var(--blue)}.working-num{color:var(--amber)}.qc-num{color:var(--violet)}.exit-num{color:var(--green)}.grand{background:#202c3d;font-weight:700}.grand td{border-top:2px solid #42516a}.no-lines{text-align:center;color:var(--muted);padding:28px}.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px;color:var(--muted);font-size:14px}.legend span:before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:currentColor;margin-right:7px}.error{color:#fca5a5!important}@media(max-width:850px){body{padding:14px}.totals{grid-template-columns:repeat(2,minmax(0,1fr))}.card{min-height:92px;padding:14px}.card strong{font-size:32px}}@media(max-width:500px){.totals{gap:9px}.card span{font-size:13px}.card strong{font-size:28px}header{align-items:flex-start;flex-direction:column}.updated{text-align:left}}
+</style>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+
+</head>
+<body>
+<main class="page">
+<header><div><h1>Repair Workflow Monitor</h1><div class="sub">Live open cases by production line</div></div><div id="updated" class="updated">Connecting…</div></header>
+<section id="totals" class="totals" aria-label="Overall queue totals"></section>
+<h2 class="section-title">Queues by Assembly Line</h2>
+<div class="table-wrap"><table><thead><tr><th>Assembly Line</th><th>Unrepaired</th><th>In Repair</th><th>QC Queue</th><th>Exit Queue</th><th>Total Open</th></tr></thead><tbody id="lineRows"><tr><td class="no-lines" colspan="6">Loading…</td></tr></tbody></table></div>
+<div class="legend"><span style="color:var(--blue)">Unrepaired</span><span style="color:var(--amber)">In Repair</span><span style="color:var(--violet)">QC Queue</span><span style="color:var(--green)">Exit Queue</span></div>
+</main>
+<script>
+const STAGES=[['REPAIR_QUEUE','Unrepaired','repair'],['IN_REPAIR','In Repair','working'],['QC_QUEUE','QC Queue','qc'],['EXIT_QUEUE','Exit Queue','exit']];
+function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function countFor(counts,stage){return Number(counts?.[stage]||0)}
+function solarDateTime(value){const date=value instanceof Date?value:new Date(value);if(Number.isNaN(date.getTime()))return String(value??'');const parts=new Intl.DateTimeFormat('en-US-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).reduce((result,part)=>{if(part.type!=='era')result[part.type]=part.value;return result},{});return `${parts.year}/${parts.month}/${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`}
+function render(data){
+ const totals=data.totals||{};
+ document.getElementById('totals').innerHTML=STAGES.map(([key,label,kind])=>`<article class="card ${kind}"><span>${label}</span><strong>${countFor(totals,key)}</strong></article>`).join('');
+ const rows=(data.lines||[]).map(line=>{const counts=line.counts||{};const total=STAGES.reduce((sum,[key])=>sum+countFor(counts,key),0);return `<tr><td class="line-name">${esc(line.line_name)}</td>${STAGES.map(([key,,kind])=>`<td class="num ${kind}-num">${countFor(counts,key)}</td>`).join('')}<td class="num">${total}</td></tr>`}).join('');
+ const grand=STAGES.reduce((sum,[key])=>sum+countFor(totals,key),0);
+ document.getElementById('lineRows').innerHTML=(rows||'<tr><td class="no-lines" colspan="6">No production lines found</td></tr>')+`<tr class="grand"><td>Overall Total</td>${STAGES.map(([key,,kind])=>`<td class="num ${kind}-num">${countFor(totals,key)}</td>`).join('')}<td class="num">${grand}</td></tr>`;
+ const updated=data.updated_at?new Date(data.updated_at):new Date();
+ document.getElementById('updated').textContent='Last updated: '+solarDateTime(updated);
+}
+let fallbackTimer=null;
+async function refreshFallback(){try{const response=await fetch('/api/repair/monitor/overview',{cache:'no-store'});const data=await response.json();if(!response.ok)throw new Error(data.detail||'Could not load monitor data');render(data);document.getElementById('updated').textContent='Live connection unavailable · polling · '+solarDateTime(new Date());document.getElementById('updated').classList.remove('error')}catch(error){document.getElementById('updated').textContent='Update failed: '+error.message;document.getElementById('updated').classList.add('error')}}
+if('EventSource' in window){
+ const stream=new EventSource('/api/repair/monitor/stream');
+ stream.onopen=()=>{if(fallbackTimer){clearInterval(fallbackTimer);fallbackTimer=null;}document.getElementById('updated').textContent='Live connection active';document.getElementById('updated').classList.remove('error')};
+ stream.onmessage=event=>{try{const data=JSON.parse(event.data);render(data);document.getElementById('updated').textContent='Live · updated '+solarDateTime(data.updated_at||new Date());document.getElementById('updated').classList.remove('error');if(fallbackTimer){clearInterval(fallbackTimer);fallbackTimer=null;}}catch(error){console.error('Invalid monitor event',error)}};
+ stream.onerror=()=>{document.getElementById('updated').textContent='Reconnecting to live monitor…';document.getElementById('updated').classList.add('error');if(!fallbackTimer){refreshFallback();fallbackTimer=setInterval(refreshFallback,2000)}};
+}else{refreshFallback();fallbackTimer=setInterval(refreshFallback,2000)}
+</script>
+</body>
+</html>

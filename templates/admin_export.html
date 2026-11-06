@@ -82,6 +82,18 @@ button{
     color:white;
 }
 
+.export_stops{
+    margin-top:15px;
+    background:#f59e0b;
+    color:#111827;
+}
+
+.export_repair{
+    margin-top:15px;
+    background:#8b5cf6;
+    color:white;
+}
+
 .back{
 
     margin-top:15px;
@@ -93,6 +105,8 @@ button{
 }
 
 </style>
+
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
 
 </head>
 
@@ -148,6 +162,20 @@ Download Pack History
 
 </button>
 
+<button
+    class="export_stops"
+    onclick="downloadAdminExport('/api/export/line-stops')"
+>
+Download Line Stop Report
+</button>
+
+<button
+    class="export_repair"
+    onclick="downloadAdminExport('/api/export/repair-dashboard')"
+>
+Download Repair Serial Timeline
+</button>
+
 
 
 <button
@@ -163,6 +191,17 @@ Back
 </button>
 
 </div>
+
+<script>
+function downloadAdminExport(path) {
+    const username = sessionStorage.getItem("attendance_admin_username");
+    if (!username) {
+        alert("Admin session not found. Please sign in again.");
+        return;
+    }
+    window.location.href = `${path}?admin_username=${encodeURIComponent(username)}`;
+}
+</script>
 
 </body>
 

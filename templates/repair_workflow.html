@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repair Workflow</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:20px;background:#111827;color:#f8fafc;font-family:Arial,Tahoma,sans-serif}.wrap{width:100%;max-width:1900px;margin:auto}h1{margin:4px 0 18px;color:#dbeafe;font-size:26px}.summary{display:flex;gap:12px;margin:0 0 18px}.metric{min-width:180px;background:#1f2937;border:1px solid #374151;border-radius:10px;padding:14px 20px;color:#cbd5e1}.metric strong{display:block;color:#60a5fa;font-size:25px;margin-top:7px}.scanner{width:100%;margin:0 0 18px;padding:14px 16px;border:1px solid #475569;border-radius:9px;background:#0f172a;color:#fff;font-size:19px;outline:none}.scanner:focus{border-color:#3b82f6}.panel{overflow:auto;border:1px solid #334155;border-radius:12px;background:#18212f;margin:0 0 18px}.panel h2{font-size:18px;margin:0;padding:14px 16px;background:#263244;color:#e2e8f0;border-bottom:1px solid #3a4658}table{width:100%;border-collapse:collapse;min-width:900px}th{height:48px;background:#263244;color:#cbd5e1;font-size:14px;text-align:left;padding:12px 16px;white-space:nowrap}td{height:55px;border-top:1px solid #2b3544;padding:10px 16px;color:#f1f5f9;font-size:14px}tbody tr:hover{background:#202c3c}.empty{text-align:center;color:#94a3b8;padding:24px}.actions{white-space:nowrap}button{border:0;border-radius:7px;padding:8px 14px;margin-right:6px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer}button:hover{filter:brightness(1.12)}button.reject{background:#dc2626}button:disabled{opacity:.5;cursor:wait}.tag{display:inline-block;padding:5px 9px;border-radius:14px;background:#172554;color:#bfdbfe}.reason{max-width:300px;white-space:normal;color:#cbd5e1}#message{min-height:24px;margin:8px 0 14px;color:#93c5fd}.error{color:#fca5a5!important}.approved{color:#86efac!important}.returned{color:#fca5a5!important}@media(max-width:700px){body{padding:10px}h1{font-size:21px}.metric{min-width:130px;padding:10px}.summary{flex-wrap:wrap}.scanner{font-size:16px}}
+</style>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+
+</head>
+<body>
+<div class="wrap">
+<h1 id="pageTitle">Repair Workflow</h1>
+<div id="message" role="status"></div>
+<div id="scannerArea"></div>
+<div class="summary" id="summary"></div>
+<div id="queues"></div>
+</div>
+<script>
+const role={{ workflow_role|tojson }};
+const username=sessionStorage.getItem('workflow_username')||'';
+let boardGeneration=0;
+let boardData=null;
+let selectedQcSerial=null;
+let selectedRepairSerial=null;
+const statusLabels={REPAIR_QUEUE:'Repair Queue',IN_REPAIR:'In Repair',QC_QUEUE:'QC Queue'};
+const titles={REPAIR_QUEUE:'Repair Queue',IN_REPAIR:'Currently Repairing',QC_QUEUE:'Quality Control Queue'};
+function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function showMessage(value,type=''){const box=document.getElementById('message');box.textContent=value||'';box.className=type}
+function who(){if(!username)throw new Error('Please log in again to continue.');return username}
+function fmtTime(value){if(!value)return '—';const date=new Date(value);return Number.isNaN(date.getTime())?esc(value):date.toLocaleString()}
+async function post(path,payload){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw new Error(result.detail||'Request failed');boardGeneration++;return result}
+function actionButton(action,item,label,kind=''){return `<button class="${kind}" data-action="${action}" data-line="${item.line_id}" data-serial="${esc(item.serial_number)}">${label}</button>`}
+function renderTable(stage,items){
+ const qc=role==='qc';
+ const heading=titles[stage];
+ const rows=items.map(item=>{
+  let actions='';
+  if(qc&&stage==='QC_QUEUE')actions=actionButton('approve',item,'Approve QC')+actionButton('reject',item,'Reject QC','reject');
+  const selected=qc&&selectedQcSerial===item.serial_number?' <span class="tag">Selected</span>':role==='technician'&&selectedRepairSerial===item.serial_number?' <span class="tag">Selected</span>':'';
+  return `<tr><td>${item.id}</td><td>${fmtTime(item.workflow_created_at)}</td><td>${esc(item.serial_number)}${selected}</td><td>${esc(item.order_number)}</td><td>${esc(item.order_number)}</td><td>${esc(item.product_type||'—')}</td><td class="reason">${esc(item.qc_note||item.repair_reason||'—')}</td><td class="actions">${actions}</td></tr>`;
+ }).join('');
+ return `<section class="panel"><h2>${heading}</h2><table><thead><tr><th>ID</th><th>Time</th><th>Serial Number</th><th>Order Number</th><th>Order Code</th><th>Product Type</th><th>Repair / QC Note</th><th>Actions</th></tr></thead><tbody>${rows||'<tr><td class="empty" colspan="8">No items in this queue</td></tr>'}</tbody></table></section>`;
+}
+function render(data){
+ boardData=data;
+ const keys=role==='qc'?['QC_QUEUE']:['REPAIR_QUEUE','IN_REPAIR'];
+ document.getElementById('summary').innerHTML=keys.map(key=>`<div class="metric">${titles[key]}<strong>${data.counts[key]||0}</strong></div>`).join('');
+ document.getElementById('queues').innerHTML=keys.map(key=>renderTable(key,data.queues[key]||[])).join('');
+ if(role==='qc'&&selectedQcSerial&&!data.queues.QC_QUEUE.some(item=>item.serial_number===selectedQcSerial))selectedQcSerial=null;
+}
+async function loadBoard(){const generation=++boardGeneration;try{const query=username?'?username='+encodeURIComponent(username):'';const response=await fetch('/api/repair/monitor'+query);const data=await response.json();if(generation!==boardGeneration)return;if(!response.ok)throw new Error(data.detail||'Could not load queue');render(data);if(!username)showMessage('Please log in with a QC or Technician account to perform actions.','error');}catch(error){if(generation===boardGeneration)showMessage(error.message,'error')}}
+function qcScan(value){
+ const code=value.trim().toUpperCase();
+ if(code==='SETALLPOSITIVE'||code==='CANCELCHECKIN'){
+  if(!selectedQcSerial){showMessage('Scan a serial number from the QC queue first.','error');return;}
+  const item=boardData?.queues?.QC_QUEUE?.find(row=>row.serial_number===selectedQcSerial);
+  if(!item){selectedQcSerial=null;showMessage('Selected serial is no longer in the QC queue.','error');loadBoard();return;}
+  reviewQc(item,code==='SETALLPOSITIVE',code==='CANCELCHECKIN'?'Rejected by QC barcode':'');
+  return;
+ }
+ const item=boardData?.queues?.QC_QUEUE?.find(row=>row.serial_number===value.trim());
+ if(!item){showMessage('Serial number was not found in the QC queue.','error');return;}
+ selectedQcSerial=item.serial_number;render(boardData);showMessage(`Selected ${item.serial_number}. Scan SETALLPOSITIVE to approve or CANCELCHECKIN to reject.`);
+}
+async function startRepair(item){try{await post('/api/repair/start',{line_id:item.line_id,serial_number:item.serial_number,username:who()});selectedRepairSerial=null;await loadBoard();showMessage(`Repair started for ${item.serial_number}. Scan the same serial again after repair to send it to QC.`,'approved')}catch(error){showMessage(error.message,'error')}}
+async function finishRepair(item){try{await post('/api/repair/complete',{line_id:item.line_id,serial_number:item.serial_number,username:who()});selectedRepairSerial=null;await loadBoard();showMessage(`${item.serial_number} sent to QC.`,'approved')}catch(error){showMessage(error.message,'error')}}
+async function reviewQc(item,approved,note){try{if(!username)throw new Error('Please log in again to continue.');if(!approved&&note===undefined){note=prompt('Enter the QC rejection reason:');if(note===null)return;if(!note.trim())throw new Error('A rejection reason is required.')}const result=await post('/api/repair/qc-review',{line_id:item.line_id,serial_number:item.serial_number,username,approved,note:note||''});const expected=approved?'EXIT_QUEUE':'REPAIR_QUEUE';if(result.repair_stage!==expected)throw new Error(`Expected ${expected}, received ${result.repair_stage}.`);selectedQcSerial=null;await loadBoard();showMessage(approved?`${item.serial_number} approved and placed in the exit queue.`:`${item.serial_number} rejected and returned to its previous technician.`,approved?'approved':'returned')}catch(error){showMessage(error.message,'error')}}
+document.getElementById('pageTitle').textContent=role==='qc'?'Quality Control Queue':'Repair Workshop';
+if(role==='qc'){
+ document.getElementById('scannerArea').innerHTML='<input id="qcScanner" class="scanner" autocomplete="off" autofocus placeholder="Scan serial number, then scan SETALLPOSITIVE or CANCELCHECKIN">';
+ document.getElementById('qcScanner').addEventListener('keydown',event=>{if(event.key!=='Enter')return;event.preventDefault();const input=event.currentTarget;const value=input.value;input.value='';qcScan(value);input.focus()});
+}else{
+ document.getElementById('scannerArea').innerHTML='<input id="repairScanner" class="scanner" autocomplete="off" autofocus placeholder="Scan product serial to start repair; scan it again to send to QC">';
+ document.getElementById('repairScanner').addEventListener('keydown',event=>{if(event.key!=='Enter')return;event.preventDefault();const input=event.currentTarget;const value=input.value;input.value='';repairScan(value);input.focus()});
+}
+function repairScan(value){
+ const serial=value.trim();
+ if(!serial){showMessage('Scan a product serial number.','error');return;}
+ const item=[...(boardData?.queues?.REPAIR_QUEUE||[]),...(boardData?.queues?.IN_REPAIR||[])].find(row=>row.serial_number===serial);
+ if(!item){showMessage('Serial number was not found in the repair queues.','error');return;}
+ selectedRepairSerial=item.serial_number;
+ if(item.repair_stage==='REPAIR_QUEUE'){
+  startRepair(item);
+  return;
+ }
+ if(item.repair_stage==='IN_REPAIR'){
+  finishRepair(item);
+  return;
+ }
+ showMessage('This serial is not ready for a repair action.','error');
+}
+loadBoard();setInterval(loadBoard,10000);
+</script>
+</body>
+</html>

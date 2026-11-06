@@ -39,19 +39,20 @@ h1 {
 
 }
 
-#lunchBanner {
-
+#breakAlert {
+    display: none;
+    margin: 8px 0 14px;
+    padding: 16px;
+    border-radius: 14px;
+    background: linear-gradient(135deg,#eab308,#ca8a04);
+    color: #111827;
     text-align: center;
-
-    font-size: 60px;
-
-    color: yellow;
-
-    font-weight: bold;
-
-    margin-bottom: 20px;
-
+    font-size: clamp(36px,5vw,64px);
+    font-weight: 900;
+    letter-spacing: 1px;
+    box-shadow: 0 0 28px rgba(234,179,8,.45);
 }
+#breakAlert.active { display: block; }
 
 .row {
 
@@ -151,6 +152,8 @@ h1 {
 
 </style>
 
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+
 </head>
 
 
@@ -169,8 +172,7 @@ h1 {
 
 </div>
 
-<div id="lunchBanner"></div>
-
+<div id="breakAlert" aria-live="assertive"></div>
 <div class="row">
 
     <div class="card">
@@ -414,6 +416,8 @@ async function loadData() {
             ? "PRODUCT: " + data.product_name
             : "PRODUCT: -";
 
+    updateBreakAlert(data.tea_time, data.lunch_time);
+
 
     document.getElementById("ok").innerText =
         data.ok;
@@ -441,7 +445,7 @@ async function loadData() {
 
     document.getElementById("switch").innerText =
         data.switch_count;
-    
+
     document.getElementById("aioEquivalent").innerText =
         data.aio_equivalent;
 
@@ -509,6 +513,29 @@ async function loadData() {
 
 }
 
+function isInBreakWindow(startTime, durationMinutes) {
+    if (!startTime || !/^\d{2}:\d{2}$/.test(startTime)) return false;
+    const [hour, minute] = startTime.split(":").map(Number);
+    const start = hour * 60 + minute;
+    const now = new Date();
+    const current = now.getHours() * 60 + now.getMinutes();
+    return (current - start + 1440) % 1440 < durationMinutes;
+}
+
+function updateBreakAlert(teaTime, lunchTime) {
+    const alert = document.getElementById("breakAlert");
+    if (isInBreakWindow(lunchTime, 45)) {
+        alert.textContent = "🍽 LUNCH TIME 🍽";
+        alert.classList.add("active");
+    } else if (isInBreakWindow(teaTime, 15)) {
+        alert.textContent = "☕ TEA TIME ☕";
+        alert.classList.add("active");
+    } else {
+        alert.textContent = "";
+        alert.classList.remove("active");
+    }
+}
+
 
 loadData();
 
@@ -516,49 +543,6 @@ loadData();
 setInterval(
     loadData,
     5000
-);
-
-
-function checkLunchTime() {
-
-    const now = new Date();
-
-
-    const currentMinutes =
-        now.getHours() * 60 +
-        now.getMinutes();
-
-
-    if (
-        currentMinutes >= 735 &&
-        currentMinutes <= 780
-    ) {
-
-        document.getElementById(
-            "lunchBanner"
-        ).innerText =
-            "🍔 LUNCH TIME 🍔";
-
-    }
-
-    else {
-
-        document.getElementById(
-            "lunchBanner"
-        ).innerText =
-            "";
-
-    }
-
-}
-
-
-checkLunchTime();
-
-
-setInterval(
-    checkLunchTime,
-    60000
 );
 
 

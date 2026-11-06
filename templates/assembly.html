@@ -209,6 +209,8 @@
             font-weight: bold;
         }
     </style>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+
 </head>
 
 <body>
@@ -470,6 +472,15 @@ async function scanSerial(serial) {
 
         const data = await response.json();
 
+        if (!response.ok) {
+            statusBox.className = "status error";
+            statusBox.innerText = data.detail || "Serial validation failed";
+            waitingText.innerText = "Scan another serial number";
+            clearCurrent();
+            serialInput.select();
+            return;
+        }
+
 
         // -----------------------------
         // Error
@@ -553,7 +564,18 @@ async function scanSerial(serial) {
             statusBox.innerText =
                 "CURRENT STATUS: IN REPAIR";
 
-            if (data.repair_reason) {
+            if (data.repair_stage === "EXIT_QUEUE") {
+                statusBox.innerText = "QC APPROVED: READY TO CLOSE";
+                waitingText.innerText = "Scan SETALLPOSITIVE to close, or CANCELCHECKIN to return to the repair queue";
+            }
+
+            else if (data.repair_stage) {
+                waitingText.innerText =
+                    "Repair workflow stage: " + data.repair_stage +
+                    (data.repair_reason ? " | Fault: " + data.repair_reason : "");
+            }
+
+            else if (data.repair_reason) {
 
                 waitingText.innerText =
                     "Repair Reason: " + data.repair_reason;
@@ -713,6 +735,10 @@ async function saveAssemblyStatus(status, repairReason) {
 
         const data = await response.json();
 
+        if (!response.ok) {
+            throw new Error(data.detail || "Could not save assembly status");
+        }
+
 
         if (data.error) {
 
@@ -790,7 +816,7 @@ async function saveAssemblyStatus(status, repairReason) {
 
         statusBox.className = "status error";
 
-        statusBox.innerText = "SERVER ERROR";
+        statusBox.innerText = error.message || "SERVER ERROR";
 
     }
 }

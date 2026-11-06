@@ -102,6 +102,8 @@ td{
 
 </style>
 
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+
 </head>
 
 <body>
@@ -144,6 +146,14 @@ td{
                     Order Code
                 </option>
 
+                <option value="technician">
+                    Technician
+                </option>
+
+                <option value="qc">
+                    Quality Control
+                </option>
+
                 <option value="admin">
                     Admin
                 </option>
@@ -153,7 +163,9 @@ td{
             <input
                 id="line"
                 type="number"
-                placeholder="Line ID"
+                min="1"
+                step="1"
+                placeholder="Line ID (required for Operator/Supervisor)"
             >
 
         </div>
@@ -263,6 +275,9 @@ async function loadUsers(){
                         ordercode
                     </option>
 
+                    <option value="technician" ${user.role==="technician"?"selected":""}>technician</option>
+                    <option value="qc" ${user.role==="qc"?"selected":""}>qc</option>
+
                     <option
                         value="admin"
                         ${user.role==="admin"?"selected":""}
@@ -335,64 +350,51 @@ async function loadUsers(){
 }
 
 async function createUser(){
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+    const role = document.getElementById("role").value;
+    const rawLineId = document.getElementById("line").value.trim();
+    const message = document.getElementById("message");
+    const button = document.querySelector(".create-btn");
 
-    const response =
+    if (!username || !password) {
+        message.innerText = "Enter both a username and password.";
+        return;
+    }
 
-        await fetch(
+    const requiresLine = role === "operator" || role === "supervisor";
+    const lineId = rawLineId ? Number(rawLineId) : null;
+    if (requiresLine && (!Number.isInteger(lineId) || lineId < 1)) {
+        message.innerText = "Enter a valid Line ID for an Operator or Supervisor.";
+        document.getElementById("line").focus();
+        return;
+    }
 
-            "/api/users",
+    button.disabled = true;
+    message.innerText = "Creating user…";
+    try {
+        const response = await fetch("/api/users", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username, password, role, line_id: lineId})
+        });
+        const result = await response.json();
+        const detail = Array.isArray(result.detail)
+            ? result.detail.map(item => item.msg || "Invalid input").join("; ")
+            : result.detail;
+        if (!response.ok || result.error) {
+            throw new Error(detail || result.error || `Request failed (${response.status})`);
+        }
 
-            {
-
-                method:"POST",
-
-                headers:{
-
-                    "Content-Type":
-                    "application/json"
-
-                },
-
-                body:JSON.stringify({
-
-                    username:
-                    document.getElementById(
-                        "username"
-                    ).value,
-
-                    password:
-                    document.getElementById(
-                        "password"
-                    ).value,
-
-                    role:
-                    document.getElementById(
-                        "role"
-                    ).value,
-
-                    line_id:
-                    document.getElementById(
-                        "line"
-                    ).value || null
-
-                })
-
-            }
-
-        );
-
-    const result =
-        await response.json();
-
-    document.getElementById(
-        "message"
-    ).innerText =
-
-        result.message ||
-        result.error;
-
-    loadUsers();
-
+        message.innerText = result.message || "User created successfully.";
+        document.getElementById("username").value = "";
+        document.getElementById("password").value = "";
+        await loadUsers();
+    } catch (error) {
+        message.innerText = error.message || "Could not create user.";
+    } finally {
+        button.disabled = false;
+    }
 }
 
 async function updateUser(id){

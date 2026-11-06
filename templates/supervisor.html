@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Supervisor Panel</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+
+body{
+
+    margin:0;
+
+    background:#0f172a;
+
+    font-family:Tahoma;
+
+    color:white;
+
+}
+
+.container{
+
+    width:90%;
+
+    max-width:900px;
+
+    margin:auto;
+
+    padding-top:40px;
+
+}
+
+.header{
+
+    text-align:center;
+
+    margin-bottom:40px;
+
+}
+
+.header h1{
+
+    font-size:50px;
+
+    margin:0;
+
+}
+
+.header h2{
+
+    font-size:28px;
+
+    color:#94a3b8;
+
+}
+
+.clock{
+
+    text-align:center;
+
+    font-size:24px;
+
+    margin-bottom:30px;
+
+}
+
+.grid{
+
+    display:grid;
+
+    grid-template-columns:
+    repeat(2,1fr);
+
+    gap:25px;
+
+}
+
+.card{
+
+    background:linear-gradient(
+        145deg,
+        #1e293b,
+        #0f172a
+    );
+
+    border-radius:25px;
+
+    padding:40px;
+
+    text-align:center;
+
+    cursor:pointer;
+
+    transition:.3s;
+
+    box-shadow:
+    0 8px 20px rgba(0,0,0,.5);
+
+}
+
+.card:hover{
+
+    transform:
+    translateY(-5px);
+
+}
+
+.icon{
+
+    font-size:60px;
+
+    margin-bottom:15px;
+
+}
+
+.title{
+
+    font-size:28px;
+
+    font-weight:bold;
+
+}
+
+.subtitle{
+
+    margin-top:10px;
+
+    color:#cbd5e1;
+
+    font-size:18px;
+
+}
+
+.footer{
+
+    text-align:center;
+
+    margin-top:40px;
+
+    color:#94a3b8;
+
+    font-size:18px;
+
+}
+
+.products-card {
+        width: 100%;
+        max-width: 900px;
+        margin: 25px auto;
+        padding: 22px;
+        box-sizing: border-box;
+
+        background: linear-gradient(
+            145deg,
+            #1e293b,
+            #0f172a
+        );
+
+        border-radius: 20px;
+
+        box-shadow:
+            0 15px 40px rgba(0, 0, 0, 0.35),
+            inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    /* Header */
+    .products-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .products-header-icon {
+        width: 55px;
+        height: 55px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        background: linear-gradient(
+            145deg,
+            #1683ff,
+            #075dcc
+        );
+
+        border-radius: 15px;
+        font-size: 27px;
+
+        box-shadow:
+            0 7px 20px rgba(0, 123, 255, 0.3);
+    }
+
+    .products-header-text {
+        border-left: 2px solid rgba(150, 190, 230, 0.5);
+        padding-left: 15px;
+    }
+
+    .products-header-text h2 {
+        margin: 0;
+        font-size: 25px;
+        font-weight: 800;
+        color: white;
+    }
+
+    .products-header-text h2 span {
+        color: #1590ff;
+    }
+
+    .products-header-text p {
+        margin: 4px 0 0;
+        color: #8fb1d5;
+        font-size: 13px;
+    }
+
+
+    /* دو کارت کنار هم */
+    .products-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+
+    /* Product Card */
+    .product-section {
+        padding: 18px;
+
+        border-radius: 16px;
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(17, 47, 82, 0.95),
+                rgba(10, 30, 55, 0.95)
+            );
+
+        border: 1px solid rgba(50, 130, 210, 0.45);
+
+        position: relative;
+    }
+
+    .product-section.assembly {
+        border-left: 5px solid #1590ff;
+    }
+
+    .product-section.pack {
+        border-left: 5px solid #16d49b;
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(10, 55, 65, 0.95),
+                rgba(8, 35, 48, 0.95)
+            );
+
+        border-color: rgba(22, 212, 155, 0.45);
+        border-left-color: #16d49b;
+    }
+
+
+    /* Product title */
+    .product-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        margin-bottom: 15px;
+    }
+
+    .product-icon {
+        width: 45px;
+        height: 45px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        border-radius: 50%;
+
+        background: rgba(20, 130, 255, 0.18);
+        color: #58aaff;
+
+        font-size: 22px;
+    }
+
+    .pack .product-icon {
+        background: rgba(22, 212, 155, 0.18);
+        color: #35e5ad;
+    }
+
+    .product-title-text h3 {
+        margin: 0;
+        color: white;
+        font-size: 18px;
+        font-weight: 750;
+    }
+
+    .product-title-text p {
+        margin: 3px 0 0;
+        color: #86a9ce;
+        font-size: 11px;
+    }
+
+
+    /* Input */
+    .product-input-wrapper {
+        position: relative;
+        width: 100%;
+        margin-bottom: 12px;
+    }
+
+    .product-input-icon {
+        position: absolute;
+
+        left: 14px;
+        top: 50%;
+
+        transform: translateY(-50%);
+
+        font-size: 17px;
+        color: #78a9d7;
+
+        pointer-events: none;
+    }
+
+    .product-input {
+        width: 100%;
+        height: 48px;
+
+        box-sizing: border-box;
+
+        padding: 0 15px 0 43px;
+
+        border-radius: 11px;
+
+        border: 1px solid rgba(75, 155, 225, 0.65);
+
+        background: rgba(5, 22, 42, 0.75);
+
+        color: white;
+
+        font-size: 14px;
+
+        outline: none;
+
+        transition: 0.2s;
+    }
+
+    .product-input::placeholder {
+        color: #6385aa;
+    }
+
+    .product-input:focus {
+        border-color: #1590ff;
+
+        box-shadow:
+            0 0 0 3px rgba(21, 144, 255, 0.12);
+    }
+
+    .pack .product-input:focus {
+        border-color: #16d49b;
+
+        box-shadow:
+            0 0 0 3px rgba(22, 212, 155, 0.12);
+    }
+
+
+    /* Save button */
+    .product-save-btn {
+        width: 100%;
+        height: 48px;
+
+        border: none;
+        border-radius: 11px;
+
+        color: white;
+
+        font-size: 12px;
+        font-weight: 800;
+
+        cursor: pointer;
+
+        transition: all 0.2s;
+    }
+
+    .assembly .product-save-btn {
+        background:
+            linear-gradient(
+                135deg,
+                #1590ff,
+                #0865d5
+            );
+
+        box-shadow:
+            0 7px 18px rgba(0, 110, 255, 0.22);
+    }
+
+    .pack .product-save-btn {
+        background:
+            linear-gradient(
+                135deg,
+                #16d49b,
+                #08a978
+            );
+
+        box-shadow:
+            0 7px 18px rgba(22, 212, 155, 0.18);
+    }
+
+    .product-save-btn:hover {
+        transform: translateY(-2px);
+        filter: brightness(1.1);
+    }
+
+    .product-save-btn:active {
+        transform: translateY(0);
+    }
+
+
+    /* موبایل */
+    @media (max-width: 700px) {
+
+        .products-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .products-card {
+            padding: 16px;
+        }
+    }
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+
+        <h1>
+
+            Supervisor Panel
+
+        </h1>
+
+        <h2>
+
+            Line {{ line_id }}
+
+        </h2>
+
+    </div>
+
+    <div
+        class="clock"
+        id="clock"
+    >
+    </div>
+
+    <div class="grid">
+
+        <div
+            class="card"
+            onclick="
+            location.href=
+            '/supervisor/assembly/{{ line_id }}'
+            "
+        >
+
+            <div class="icon">
+
+                🔧
+
+            </div>
+
+            <div class="title">
+
+                Today Assembly
+
+            </div>
+
+            <div class="subtitle">
+
+                Assembly Records Today
+
+            </div>
+
+        </div>
+
+        <div
+            class="card"
+            onclick="
+                location.href=
+                '/supervisor/assembly-history/{{ line_id }}'
+            "
+        >
+            <div class="icon">📜</div>
+
+            <div class="title">
+                Assembly History
+            </div>
+
+            <div class="subtitle">
+                Assembly Status History
+            </div>
+        </div>
+
+        <div
+            class="card"
+            onclick="
+                location.href=
+                '/supervisor/pack/{{ line_id }}'
+            "
+        >
+            <div class="icon">📦</div>
+
+            <div class="title">
+                Today Pack
+            </div>
+
+            <div class="subtitle">
+                Production Pack Records Today
+            </div>
+        </div>
+
+        <div
+            class="card"
+            onclick="
+                location.href=
+                '/supervisor/attendance/{{ line_id }}'
+            "
+        >
+            <div class="icon">👥</div>
+
+            <div class="title">
+                Attendance
+            </div>
+
+            <div class="subtitle">
+                Employee Attendance Management
+            </div>
+        </div>
+
+        <div
+            class="card"
+            onclick="
+                location.href=
+                '/supervisor/line-status/{{ line_id }}'
+            "
+        >
+            <div class="icon">🚦</div>
+
+            <div class="title">
+                Line Status
+            </div>
+
+            <div class="subtitle">
+                Running / Stopped
+            </div>
+        </div>
+
+        <div
+            class="card"
+            onclick="
+            location.href=
+            '/stop/{{ line_id }}'
+            "
+        >
+
+            <div class="icon">
+
+                ⛔
+
+            </div>
+
+            <div class="title">
+
+                Stop
+
+            </div>
+
+            <div class="subtitle">
+
+                Register Line Stop
+
+            </div>
+
+        </div>
+
+                <div
+            class="card"
+            onclick="
+            location.href=
+            '/switch/{{ line_id }}'
+            "
+        >
+
+            <div class="icon">
+
+                🔄
+
+            </div>
+
+            <div class="title">
+
+                Switch
+
+            </div>
+
+            <div class="subtitle">
+
+                Register Model Change
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- CURRENT PRODUCTS -->
+
+    <div class="products-card">
+
+        <!-- HEADER -->
+        <div class="products-header">
+
+            <div class="products-header-icon">
+                ⚙
+            </div>
+
+            <div class="products-header-text">
+
+                <h2>
+                    Current <span>Products</span>
+                </h2>
+
+                <p>
+                    Set the current product for assembly and pack
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- TWO PRODUCTS -->
+        <div class="products-grid">
+
+            <!-- ASSEMBLY -->
+            <div class="product-section assembly">
+
+                <div class="product-title">
+
+                    <div class="product-icon">
+                        🏭
+                    </div>
+
+                    <div class="product-title-text">
+
+                        <h3>Assembly Product</h3>
+
+                        <p>
+                            Product currently in assembly
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="product-input-wrapper">
+
+                    <span class="product-input-icon">
+                        🏷
+                    </span>
+
+                    <input
+                        type="text"
+                        id="assemblyProduct"
+                        class="product-input"
+                        placeholder="e.g. AP272"
+                    >
+
+                </div>
+
+
+                <button
+                    class="product-save-btn"
+                    onclick="saveAssemblyProduct()"
+                >
+                    💾 &nbsp; SAVE ASSEMBLY PRODUCT
+                </button>
+
+            </div>
+
+
+            <!-- PACK -->
+            <div class="product-section pack">
+
+                <div class="product-title">
+
+                    <div class="product-icon">
+                        📦
+                    </div>
+
+                    <div class="product-title-text">
+
+                        <h3>Pack Product</h3>
+
+                        <p>
+                            Product currently in pack
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="product-input-wrapper">
+
+                    <span class="product-input-icon">
+                        🏷
+                    </span>
+
+                    <input
+                        type="text"
+                        id="packProduct"
+                        class="product-input"
+                        placeholder="e.g. AM242"
+                    >
+
+                </div>
+
+
+                <button
+                    class="product-save-btn"
+                    onclick="savePackProduct()"
+                >
+                    💾 &nbsp; SAVE PACK PRODUCT
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+<script>
+
+function updateClock(){
+
+    const now = new Date();
+
+    document.getElementById(
+        "clock"
+    ).innerText =
+
+        now.toLocaleDateString("fa-IR")
+
+        +
+
+        " | "
+
+        +
+
+        now.toLocaleTimeString("fa-IR");
+
+}
+
+updateClock();
+
+setInterval(
+    updateClock,
+    1000
+);
+
+async function loadProducts() {
+    try {
+        const response = await fetch(
+            `/api/supervisor/products/{{ line_id }}`
+        );
+
+        const data = await response.json();
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        document.getElementById("assemblyProduct").value =
+            data.assembly_product_name || "";
+
+        document.getElementById("packProduct").value =
+            data.pack_product_name || "";
+
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+
+async function saveAssemblyProduct() {
+    const productName =
+        document.getElementById("assemblyProduct").value.trim();
+
+    if (!productName) {
+        alert("Enter assembly product name");
+        return;
+    }
+
+    const response = await fetch(
+        `/api/supervisor/assembly-product/{{ line_id }}`,
+        {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                product_name: productName
+            })
+        }
+    );
+
+    const data = await response.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    alert("Assembly product saved");
+}
+
+
+async function savePackProduct() {
+    const productName =
+        document.getElementById("packProduct").value.trim();
+
+    if (!productName) {
+        alert("Enter pack product name");
+        return;
+    }
+
+    const response = await fetch(
+        `/api/supervisor/pack-product/{{ line_id }}`,
+        {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                product_name: productName
+            })
+        }
+    );
+
+    const data = await response.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    alert("Pack product saved");
+}
+
+
+loadProducts();
+
+</script>
+
+</body>
+
+</html>

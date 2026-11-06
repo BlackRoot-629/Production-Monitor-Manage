@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+jinja2
+python-multipart
+openpyxl
+jdatetime
+apscheduler
+pydantic

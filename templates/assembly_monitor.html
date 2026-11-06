@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Assembly Monitor</title>
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+>
+
+<style>
+
+body {
+
+    font-family: Tahoma;
+
+    background: #0f172a;
+
+    color: white;
+
+    margin: 20px;
+
+    transition: background .5s;
+
+}
+
+h1 {
+
+    text-align: center;
+
+    font-size: 60px;
+
+    margin-bottom: 20px;
+
+}
+
+#lunchBanner {
+
+    text-align: center;
+
+    font-size: 60px;
+
+    color: yellow;
+
+    font-weight: bold;
+
+    margin-bottom: 20px;
+
+}
+
+.row {
+
+    display: flex;
+
+    gap: 20px;
+
+    margin-bottom: 20px;
+
+}
+
+.card {
+
+    flex: 1;
+
+    background: linear-gradient(
+        145deg,
+        #2c2c2c,
+        #1a1a1a
+    );
+
+    border-radius: 25px;
+
+    padding: 25px;
+
+    text-align: center;
+
+    box-shadow:
+        0 8px 20px rgba(0,0,0,.6);
+
+}
+
+.value {
+
+    font-size: 70px;
+
+    font-weight: bold;
+
+}
+
+.title {
+
+    font-size: 24px;
+
+    margin-bottom: 10px;
+
+    opacity: .8;
+
+}
+
+.big {
+
+    height: 170px;
+
+}
+
+#differenceCard {
+
+    transition: .5s;
+
+}
+
+.monitor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1px;
+    width: 100%;
+}
+
+.monitor-header h1 {
+    margin-bottom: 8px;
+}
+
+#productName {
+
+    padding: 12px 35px;
+
+    background: linear-gradient(
+        145deg,
+        #1e40af,
+        #1d4ed8
+    );
+
+    border: 1px solid rgba(96, 165, 250, 0.6);
+
+    border-radius: 15px;
+
+    color: white;
+
+    font-size: 30px;
+    font-weight: bold;
+
+    box-shadow:
+        0 6px 20px rgba(30, 64, 175, 0.35);
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="monitor-header">
+
+    <h1>
+        Assembly - Line {{ line_id }}
+    </h1>
+
+    <div id="productName">
+        Product: -
+    </div>
+
+</div>
+
+<div id="lunchBanner"></div>
+
+<div class="row">
+
+    <div class="card">
+
+        <div class="title">
+            AIO
+        </div>
+
+        <div
+            class="value"
+            id="aio"
+        >
+            0
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="title">
+            MNT
+        </div>
+
+        <div
+            class="value"
+            id="mnt"
+        >
+            0
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="title">
+            CASE
+        </div>
+
+        <div
+            class="value"
+            id="case"
+        >
+            0
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="title">
+            NB
+        </div>
+
+        <div
+            class="value"
+            id="nb"
+        >
+            0
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="row">
+
+
+    <div class="card">
+
+        <div class="title">
+            OK
+        </div>
+
+        <div
+            class="value"
+            id="ok"
+        >
+            0
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="title">
+            IN REPAIR
+        </div>
+
+        <div
+            class="value"
+            id="repair"
+        >
+            0
+        </div>
+
+    </div>
+
+
+</div>
+
+
+<div class="row">
+
+
+    <div class="card big">
+
+            <div class="title">
+                Actual Assembly
+            </div>
+
+            <div
+                class="value"
+                id="actual"
+            >
+                0
+            </div>
+
+        </div>
+
+        <div class="card big">
+
+            <div class="title">
+                AIO Actual
+            </div>
+
+            <div
+                class="value"
+                id="aioEquivalent"
+            >
+                0
+            </div>
+
+        </div>
+
+
+        <div class="card big">
+
+            <div class="title">
+                Target
+            </div>
+
+            <div
+                class="value"
+                id="expected"
+            >
+                0
+            </div>
+
+        </div>
+
+    </div>
+
+    </div>
+
+
+</div>
+
+
+<div class="row">
+
+
+    <div
+        class="card big"
+        id="differenceCard"
+    >
+
+        <div class="title">
+            Difference
+        </div>
+
+        <div
+            class="value"
+            id="difference"
+        >
+            0
+        </div>
+
+    </div>
+
+
+</div>
+
+
+<div class="row">
+
+
+    <div class="card">
+
+        <div class="title">
+            Stop(MIN)
+        </div>
+
+        <div
+            class="value"
+            id="stop"
+        >
+            0
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="title">
+            Switch
+        </div>
+
+        <div
+            class="value"
+            id="switch"
+        >
+            0
+        </div>
+
+    </div>
+
+
+</div>
+
+
+<script>
+
+
+async function loadData() {
+
+    const response = await fetch(
+        "/api/assembly/monitor/{{ line_id }}"
+    );
+
+
+    const data = await response.json();
+
+    document.getElementById("productName").innerText =
+        data.product_name
+            ? "PRODUCT: " + data.product_name
+            : "PRODUCT: -";
+
+
+    document.getElementById("ok").innerText =
+        data.ok;
+
+
+    document.getElementById("repair").innerText =
+        data.repair;
+
+
+    document.getElementById("actual").innerText =
+        data.actual_count;
+
+
+    document.getElementById("expected").innerText =
+        data.expected_count;
+
+
+    document.getElementById("difference").innerText =
+        data.difference;
+
+
+    document.getElementById("stop").innerText =
+        data.stop_minutes;
+
+
+    document.getElementById("switch").innerText =
+        data.switch_count;
+    
+    document.getElementById("aioEquivalent").innerText =
+        data.aio_equivalent;
+
+    document.getElementById("aio").innerText =
+        data.aio;
+
+    document.getElementById("mnt").innerText =
+        data.mnt;
+
+    document.getElementById("case").innerText =
+        data.case;
+
+    document.getElementById("nb").innerText =
+        data.nb;
+
+
+    const diffCard =
+        document.getElementById(
+            "differenceCard"
+        );
+
+
+    if (data.difference > 0) {
+
+        diffCard.style.background =
+            "linear-gradient(145deg,#16a34a,#15803d)";
+
+    }
+
+    else if (data.difference < 0) {
+
+        diffCard.style.background =
+            "linear-gradient(145deg,#dc2626,#991b1b)";
+
+    }
+
+    else {
+
+        diffCard.style.background =
+            "linear-gradient(145deg,#2563eb,#1d4ed8)";
+
+    }
+
+
+    const actual =
+        document.getElementById("actual");
+
+
+    if (
+        data.actual_count >=
+        data.expected_count
+    ) {
+
+        actual.style.color =
+            "#00ff00";
+
+    }
+
+    else {
+
+        actual.style.color =
+            "#ffffff";
+
+    }
+
+}
+
+
+loadData();
+
+
+setInterval(
+    loadData,
+    5000
+);
+
+
+function checkLunchTime() {
+
+    const now = new Date();
+
+
+    const currentMinutes =
+        now.getHours() * 60 +
+        now.getMinutes();
+
+
+    if (
+        currentMinutes >= 735 &&
+        currentMinutes <= 780
+    ) {
+
+        document.getElementById(
+            "lunchBanner"
+        ).innerText =
+            "🍔 LUNCH TIME 🍔";
+
+    }
+
+    else {
+
+        document.getElementById(
+            "lunchBanner"
+        ).innerText =
+            "";
+
+    }
+
+}
+
+
+checkLunchTime();
+
+
+setInterval(
+    checkLunchTime,
+    60000
+);
+
+
+</script>
+
+
+</body>
+
+</html>

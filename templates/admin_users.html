@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>User Management</title>
+
+<style>
+
+body{
+    background:#0f172a;
+    color:white;
+    font-family:Tahoma;
+    margin:20px;
+}
+
+.container{
+    max-width:1400px;
+    margin:auto;
+}
+
+h1{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.card{
+    background:#1e293b;
+    border-radius:20px;
+    padding:20px;
+    margin-bottom:20px;
+}
+
+.form-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:15px;
+}
+
+input,
+select{
+    width:100%;
+    padding:12px;
+    font-size:18px;
+    border:none;
+    border-radius:10px;
+    box-sizing:border-box;
+}
+
+button{
+    padding:10px 15px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+}
+
+.create-btn{
+    background:#22c55e;
+    color:white;
+}
+
+.save-btn{
+    background:#3b82f6;
+    color:white;
+}
+
+.delete-btn{
+    background:#ef4444;
+    color:white;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th{
+    background:#334155;
+}
+
+th,
+td{
+    padding:12px;
+    text-align:center;
+    border-bottom:1px solid #475569;
+}
+
+#message{
+    margin-top:15px;
+    font-size:20px;
+    text-align:center;
+    font-weight:bold;
+}
+
+.small-input{
+    width:80px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>User Management</h1>
+
+    <div class="card">
+
+        <h2>Create User</h2>
+
+        <div class="form-grid">
+
+            <input
+                id="username"
+                placeholder="Username"
+            >
+
+            <input
+                id="password"
+                placeholder="Password"
+            >
+
+            <select id="role">
+
+                <option value="operator">
+                    Operator
+                </option>
+
+                <option value="supervisor">
+                    Supervisor
+                </option>
+
+                <option value="dashboard">
+                    Dashboard
+                </option>
+
+                <option value="ordercode">
+                    Order Code
+                </option>
+
+                <option value="admin">
+                    Admin
+                </option>
+
+            </select>
+
+            <input
+                id="line"
+                type="number"
+                placeholder="Line ID"
+            >
+
+        </div>
+
+        <br>
+
+        <button
+            class="create-btn"
+            onclick="createUser()"
+        >
+            Create User
+        </button>
+
+        <div id="message"></div>
+
+    </div>
+
+    <div class="card">
+
+        <h2>Users List</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>ID</th>
+
+                    <th>Username</th>
+
+                    <th>Role</th>
+
+                    <th>Line</th>
+
+                    <th>Save</th>
+
+                    <th>Delete</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody id="usersTable">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script>
+
+async function loadUsers(){
+
+    const response =
+        await fetch("/api/users");
+
+    const users =
+        await response.json();
+
+    let html = "";
+
+    users.forEach(user=>{
+
+        html += `
+
+        <tr>
+
+            <td>${user.id}</td>
+
+            <td>${user.username}</td>
+
+            <td>
+
+                <select
+                    id="role-${user.id}"
+                >
+
+                    <option
+                        value="operator"
+                        ${user.role==="operator"?"selected":""}
+                    >
+                        operator
+                    </option>
+
+                    <option
+                        value="supervisor"
+                        ${user.role==="supervisor"?"selected":""}
+                    >
+                        supervisor
+                    </option>
+
+                    <option
+                        value="dashboard"
+                        ${user.role==="dashboard"?"selected":""}
+                    >
+                        dashboard
+                    </option>
+
+                    <option
+                        value="ordercode"
+                        ${user.role==="ordercode"?"selected":""}
+                    >
+                        ordercode
+                    </option>
+
+                    <option
+                        value="admin"
+                        ${user.role==="admin"?"selected":""}
+                    >
+                        admin
+                    </option>
+
+                </select>
+
+            </td>
+
+            <td>
+
+                <input
+
+                    class="small-input"
+
+                    id="line-${user.id}"
+
+                    type="number"
+
+                    value="${user.line_id ?? ''}"
+
+                >
+
+            </td>
+
+            <td>
+
+                <button
+
+                    class="save-btn"
+
+                    onclick="updateUser(${user.id})"
+
+                >
+
+                    Save
+
+                </button>
+
+            </td>
+
+            <td>
+
+                <button
+
+                    class="delete-btn"
+
+                    onclick="deleteUser(${user.id})"
+
+                >
+
+                    Delete
+
+                </button>
+
+            </td>
+
+        </tr>
+
+        `;
+
+    });
+
+    document.getElementById(
+        "usersTable"
+    ).innerHTML = html;
+
+}
+
+async function createUser(){
+
+    const response =
+
+        await fetch(
+
+            "/api/users",
+
+            {
+
+                method:"POST",
+
+                headers:{
+
+                    "Content-Type":
+                    "application/json"
+
+                },
+
+                body:JSON.stringify({
+
+                    username:
+                    document.getElementById(
+                        "username"
+                    ).value,
+
+                    password:
+                    document.getElementById(
+                        "password"
+                    ).value,
+
+                    role:
+                    document.getElementById(
+                        "role"
+                    ).value,
+
+                    line_id:
+                    document.getElementById(
+                        "line"
+                    ).value || null
+
+                })
+
+            }
+
+        );
+
+    const result =
+        await response.json();
+
+    document.getElementById(
+        "message"
+    ).innerText =
+
+        result.message ||
+        result.error;
+
+    loadUsers();
+
+}
+
+async function updateUser(id){
+
+    const response =
+
+        await fetch(
+
+            "/api/users/" + id,
+
+            {
+
+                method:"PUT",
+
+                headers:{
+
+                    "Content-Type":
+                    "application/json"
+
+                },
+
+                body:JSON.stringify({
+
+                    role:
+
+                    document
+                    .getElementById(
+                        "role-" + id
+                    )
+                    .value,
+
+                    line_id:
+
+                    document
+                    .getElementById(
+                        "line-" + id
+                    )
+                    .value || null
+
+                })
+
+            }
+
+        );
+
+    const result =
+        await response.json();
+
+    document.getElementById(
+        "message"
+    ).innerText =
+
+        result.message ||
+        result.error;
+
+    loadUsers();
+
+}
+
+async function deleteUser(id){
+
+    if(
+        !confirm(
+            "Delete User ?"
+        )
+    ){
+        return;
+    }
+
+    const response =
+
+        await fetch(
+
+            "/api/users/" + id,
+
+            {
+
+                method:"DELETE"
+
+            }
+
+        );
+
+    const result =
+        await response.json();
+
+    document.getElementById(
+        "message"
+    ).innerText =
+
+        result.message ||
+        result.error;
+
+    loadUsers();
+
+}
+
+loadUsers();
+
+</script>
+
+</body>
+
+</html>

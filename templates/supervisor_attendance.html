@@ -1,0 +1,1790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Management</title>
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #0b1220;
+            color: #e5e7eb;
+            padding: 25px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            font-size: 26px;
+            color: #60a5fa;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            margin-top: 7px;
+            font-size: 13px;
+        }
+
+        .card {
+            background: #172033;
+            border: 1px solid #273449;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 22px;
+        }
+
+        .card-title {
+            font-size: 17px;
+            font-weight: bold;
+            margin-bottom: 18px;
+            color: #bfdbfe;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        input, select, textarea {
+            background: #0f172a;
+            color: white;
+            border: 1px solid #334155;
+            border-radius: 7px;
+            padding: 10px 12px;
+            min-width: 180px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        textarea {
+            min-width: 100%;
+            resize: vertical;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: #3b82f6;
+        }
+
+        button {
+            border: none;
+            border-radius: 7px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1d4ed8;
+        }
+
+        .btn-save {
+            background: #0d9488;
+            color: white;
+            padding: 8px 13px;
+        }
+
+        .btn-save:hover:not(:disabled) {
+            background: #0f766e;
+        }
+
+        .btn-save-all {
+            background: #2563eb;
+            color: white;
+            padding: 12px 25px;
+            font-size: 14px;
+        }
+
+        .btn-leave {
+            background: #7c3aed;
+            color: white;
+        }
+
+        .btn-leave:hover:not(:disabled) {
+            background: #6d28d9;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 22px;
+        }
+
+        .stat-box {
+            background: #172033;
+            border: 1px solid #273449;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .blue { color: #60a5fa; }
+        .green { color: #34d399; }
+        .red { color: #f87171; }
+        .purple { color: #c4b5fd; }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 750px;
+        }
+
+        th {
+            text-align: left;
+            color: #93c5fd;
+            background: #111c30;
+            padding: 13px;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #273449;
+            font-size: 13px;
+        }
+
+        tr:hover td {
+            background: #1c2940;
+        }
+
+        td select {
+            width: 100%;
+            min-width: 150px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .status-present {
+            background: #064e3b;
+            color: #6ee7b7;
+        }
+
+        .status-pending {
+            background: #78350f;
+            color: #fcd34d;
+        }
+
+        .status-leave {
+            background: #4c1d95;
+            color: #ddd6fe;
+        }
+
+        .status-hourly {
+            background: #164e63;
+            color: #a5f3fc;
+        }
+
+        .status-sick {
+            background: #7f1d1d;
+            color: #fecaca;
+        }
+
+        .history-old { color: #f87171; }
+        .history-new { color: #34d399; }
+
+        .empty-message {
+            text-align: center;
+            color: #94a3b8;
+            padding: 30px;
+        }
+
+        .save-all-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 18px;
+        }
+
+        .save-info {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        #messageBox {
+            display: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-size: 13px;
+        }
+
+        .message-success {
+            display: block !important;
+            background: #064e3b;
+            color: #a7f3d0;
+            border: 1px solid #047857;
+        }
+
+        .message-error {
+            display: block !important;
+            background: #7f1d1d;
+            color: #fecaca;
+            border: 1px solid #b91c1c;
+        }
+
+        .leave-form-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .leave-form-grid .field {
+            width: 100%;
+        }
+
+        .leave-form-grid input,
+        .leave-form-grid select {
+            width: 100%;
+        }
+
+        .leave-notes {
+            margin-bottom: 15px;
+        }
+
+        .hidden-field {
+            display: none !important;
+        }
+
+        .leave-badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .leave-daily {
+            background: #4c1d95;
+            color: #ddd6fe;
+        }
+
+        .leave-hourly {
+            background: #164e63;
+            color: #a5f3fc;
+        }
+
+        .leave-sick {
+            background: #7f1d1d;
+            color: #fecaca;
+        }
+
+        .loading {
+            color: #60a5fa;
+            padding: 20px;
+            text-align: center;
+        }
+
+        @media (max-width: 900px) {
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .leave-form-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 700px) {
+            body {
+                padding: 12px;
+            }
+
+            .stats,
+            .leave-form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 21px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- HEADER -->
+    <div class="header">
+        <div>
+            <h1>Attendance Management</h1>
+            <div class="subtitle">
+                Production Line <span id="lineNumber"></span>
+            </div>
+        </div>
+
+        <button class="btn-primary" onclick="loadAll()">
+            REFRESH
+        </button>
+    </div>
+
+    <!-- DATE SELECTION -->
+    <div class="card">
+        <div class="toolbar">
+
+            <div class="field">
+                <label>Select Attendance Date</label>
+                <input
+                    type="text"
+                    id="attendanceDate"
+                    placeholder="Select Persian Date"
+                    readonly
+                >
+            </div>
+
+            <div class="field">
+                <label>Line</label>
+                <input
+                    type="text"
+                    id="lineDisplay"
+                    readonly
+                >
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MESSAGE -->
+    <div id="messageBox"></div>
+
+    <!-- STATISTICS -->
+    <div class="stats">
+
+        <div class="stat-box">
+            <div class="stat-label">Total Employees</div>
+            <div class="stat-value blue" id="totalEmployees">0</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-label">Assigned Employees</div>
+            <div class="stat-value green" id="assignedEmployees">0</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-label">Not Assigned</div>
+            <div class="stat-value red" id="notAssignedEmployees">0</div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-label">Employees on Leave</div>
+            <div class="stat-value purple" id="leaveEmployees">0</div>
+        </div>
+
+    </div>
+
+
+    <!-- LEAVE MANAGEMENT -->
+    <div class="card">
+
+        <div class="card-title">
+            Leave Management
+        </div>
+
+        <form id="leaveForm">
+
+            <div class="leave-form-grid">
+
+                <div class="field">
+                    <label>Employee</label>
+                    <select id="leaveEmployee" required>
+                        <option value="">Select Employee</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>Leave Type</label>
+                    <select id="leaveType" required>
+                        <option value="DAILY">Daily Leave</option>
+                        <option value="HOURLY">Hourly Leave</option>
+                        <option value="SICK">Sick Leave</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>Start Date</label>
+                    <input
+                        type="text"
+                        id="leaveStartDate"
+                        readonly
+                    >
+                </div>
+
+                <div class="field hidden-field" id="leaveEndDateField">
+                    <label>End Date</label>
+                    <input
+                        type="date"
+                        id="leaveEndDate"
+                    >
+                </div>
+
+                <div class="field hidden-field" id="leaveStartTimeField">
+                    <label>Start Time</label>
+                    <input
+                        type="time"
+                        id="leaveStartTime"
+                    >
+                </div>
+
+                <div class="field hidden-field" id="leaveEndTimeField">
+                    <label>End Time</label>
+                    <input
+                        type="time"
+                        id="leaveEndTime"
+                    >
+                </div>
+
+            </div>
+
+            <div class="field leave-notes">
+                <label>Notes</label>
+                <textarea
+                    id="leaveNotes"
+                    rows="2"
+                    placeholder="Optional notes..."
+                ></textarea>
+            </div>
+
+            <button
+                type="submit"
+                class="btn-leave"
+                id="saveLeaveBtn"
+            >
+                REGISTER LEAVE
+            </button>
+
+        </form>
+
+        <div style="margin-top:25px;">
+            <div class="card-title">
+                Leave Records
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Personnel Code</th>
+                            <th>Leave Type</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Time</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="leaveTable">
+                        <tr>
+                            <td colspan="7" class="empty-message">
+                                No leave records loaded.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- EMPLOYEE ATTENDANCE -->
+    <div class="card">
+
+        <div class="save-all-row">
+
+            <div>
+                <div class="card-title" style="margin-bottom:5px;">
+                    Employee Attendance
+                </div>
+
+                <div class="save-info">
+                    Select a station for each employee, then save individually or all together.
+                </div>
+            </div>
+
+            <button
+                id="saveAllBtn"
+                class="btn-save-all"
+                onclick="saveAllAssignments()"
+            >
+                SAVE ALL
+            </button>
+
+        </div>
+
+        <div class="table-wrapper">
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Personnel Code</th>
+                        <th>Employee Name</th>
+                        <th>Station</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody id="employeeTable">
+                    <tr>
+                        <td colspan="6" class="empty-message">
+                            Loading employees...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+        </div>
+
+    </div>
+
+
+    <!-- HISTORY -->
+    <div class="card">
+
+        <div class="card-title">
+            Station Assignment History
+        </div>
+
+        <div class="table-wrapper">
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Personnel Code</th>
+                        <th>Previous Station</th>
+                        <th>New Station</th>
+                        <th>Date & Time</th>
+                    </tr>
+                </thead>
+
+                <tbody id="historyTable">
+                    <tr>
+                        <td colspan="5" class="empty-message">
+                            Loading history...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    // ==========================================
+    // CONFIGURATION
+    // ==========================================
+
+    const LINE_ID = Number("{{ line_id }}");
+
+    let supervisorId = null;
+    let stations = [];
+    let employees = [];
+    let selectedGregorianDate = null;
+
+
+    // ==========================================
+    // HELPERS
+    // ==========================================
+
+    function normalizeDigits(value) {
+
+        return String(value ?? "")
+            .replace(/[۰-۹]/g, digit =>
+                "۰۱۲۳۴۵۶۷۸۹".indexOf(digit)
+            )
+            .replace(/[٠-٩]/g, digit =>
+                "٠١٢٣٤٥٦٧٨٩".indexOf(digit)
+            );
+    }
+
+
+    function escapeHtml(value) {
+
+        return String(value ?? "").replace(/[&<>"']/g, char => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        })[char]);
+    }
+
+
+    function getSelectedDate() {
+
+        if (!selectedGregorianDate) {
+            return null;
+        }
+
+        return normalizeDigits(selectedGregorianDate);
+    }
+
+
+    function showMessage(message, type = "success") {
+
+        const box = document.getElementById("messageBox");
+
+        box.textContent = message;
+        box.className = type === "success"
+            ? "message-success"
+            : "message-error";
+
+        window.clearTimeout(showMessage.timer);
+
+        showMessage.timer = window.setTimeout(() => {
+            box.style.display = "none";
+            box.className = "";
+        }, 5000);
+    }
+
+
+    async function apiRequest(url, options = {}) {
+
+        const response = await fetch(url, options);
+
+        let result;
+
+        try {
+            result = await response.json();
+        } catch {
+            result = {};
+        }
+
+        if (!response.ok) {
+
+            const detail = result.detail || result.error ||
+                `HTTP Error ${response.status}`;
+
+            throw new Error(detail);
+        }
+
+        if (result.error) {
+            throw new Error(result.error);
+        }
+
+        return result;
+    }
+
+
+    // ==========================================
+    // PERSIAN DATEPICKER
+    // ==========================================
+
+    function initializePersianDatepicker() {
+
+        const today = new persianDate();
+
+        selectedGregorianDate = normalizeDigits(
+            today.toCalendar("gregorian").format("YYYY-MM-DD")
+        );
+
+        $("#attendanceDate").val(
+            today.format("YYYY/MM/DD")
+        );
+
+        $("#attendanceDate").persianDatepicker({
+
+            format: "YYYY/MM/DD",
+            initialValue: true,
+            autoClose: true,
+
+            calendar: {
+                persian: {
+                    locale: "en",
+                    leapYearMode: "astronomical"
+                }
+            },
+
+            onSelect: function(unixDate) {
+
+                const selectedDate = new persianDate(unixDate);
+
+                selectedGregorianDate = normalizeDigits(
+                    selectedDate
+                        .toCalendar("gregorian")
+                        .format("YYYY-MM-DD")
+                );
+
+                // تاریخ فرم مرخصی هم با تاریخ انتخابی هماهنگ شود
+                $("#leaveStartDate").val(
+                    selectedDate.format("YYYY/MM/DD")
+                );
+
+                loadAll();
+            }
+
+        });
+
+        $("#leaveStartDate").val(
+            today.format("YYYY/MM/DD")
+        );
+    }
+
+
+    // ==========================================
+    // LOAD SUPERVISOR ID
+    // ==========================================
+
+    async function loadSupervisor() {
+
+        const result = await apiRequest("/api/users");
+
+        const users = Array.isArray(result)
+            ? result
+            : (result.users || []);
+
+        const supervisor = users.find(user =>
+            user.role === "supervisor" &&
+            Number(user.line_id) === LINE_ID
+        );
+
+        if (!supervisor) {
+            throw new Error("Supervisor not found for this line.");
+        }
+
+        // نام سرپرست در صفحه نمایش داده نمی‌شود
+        // اما شناسه برای درخواست‌های API لازم است
+        supervisorId = supervisor.id;
+
+        document.getElementById("lineNumber").textContent =
+            LINE_ID;
+
+        document.getElementById("lineDisplay").value =
+            `Production Line ${LINE_ID}`;
+    }
+
+
+    // ==========================================
+    // LOAD STATIONS
+    // ==========================================
+
+    async function loadStations() {
+
+        const result = await apiRequest(
+            `/api/attendance/stations/${LINE_ID}`
+        );
+
+        stations = Array.isArray(result)
+            ? result
+            : (result.stations || []);
+    }
+
+
+    // ==========================================
+    // LOAD DAILY ATTENDANCE
+    // ==========================================
+
+    async function loadDailyAttendance() {
+
+        const date = getSelectedDate();
+
+        const result = await apiRequest(
+            `/api/attendance/daily/${LINE_ID}` +
+            `?user_id=${supervisorId}` +
+            `&attendance_date=${encodeURIComponent(date)}`
+        );
+
+        employees = result.employees || [];
+
+        populateLeaveEmployees();
+        renderEmployees();
+        updateStatistics();
+    }
+
+
+    // ==========================================
+    // LEAVE FORM FIELDS
+    // ==========================================
+
+    function toggleLeaveFields() {
+
+        const type = document.getElementById("leaveType").value;
+
+        const endDateField =
+            document.getElementById("leaveEndDateField");
+
+        const startTimeField =
+            document.getElementById("leaveStartTimeField");
+
+        const endTimeField =
+            document.getElementById("leaveEndTimeField");
+
+        const endDateInput =
+            document.getElementById("leaveEndDate");
+
+        const startTimeInput =
+            document.getElementById("leaveStartTime");
+
+        const endTimeInput =
+            document.getElementById("leaveEndTime");
+
+        // حالت پیش‌فرض
+        endDateField.classList.add("hidden-field");
+        startTimeField.classList.add("hidden-field");
+        endTimeField.classList.add("hidden-field");
+
+        endDateInput.required = false;
+        startTimeInput.required = false;
+        endTimeInput.required = false;
+
+        if (type === "HOURLY") {
+
+            startTimeField.classList.remove("hidden-field");
+            endTimeField.classList.remove("hidden-field");
+
+            startTimeInput.required = true;
+            endTimeInput.required = true;
+
+        } else if (type === "SICK") {
+
+            endDateField.classList.remove("hidden-field");
+        }
+    }
+
+
+    // ==========================================
+    // POPULATE EMPLOYEE SELECT
+    // ==========================================
+
+    function populateLeaveEmployees() {
+
+        const select = document.getElementById("leaveEmployee");
+
+        const previousValue = select.value;
+
+        select.innerHTML = `
+            <option value="">Select Employee</option>
+        `;
+
+        employees.forEach(employee => {
+
+            const option = document.createElement("option");
+
+            option.value = employee.employee_id;
+
+            option.textContent =
+                `${employee.personnel_code} - ${employee.full_name}`;
+
+            select.appendChild(option);
+        });
+
+        if (previousValue) {
+            select.value = previousValue;
+        }
+    }
+
+
+    // ==========================================
+    // LOAD LEAVES
+    // ==========================================
+
+    async function loadLeaves() {
+
+        const date = getSelectedDate();
+
+        const result = await apiRequest(
+            `/api/attendance/leaves/${LINE_ID}` +
+            `?user_id=${supervisorId}` +
+            `&start_date=${encodeURIComponent(date)}` +
+            `&end_date=${encodeURIComponent(date)}`
+        );
+
+        renderLeaves(result.leaves || []);
+    }
+
+
+    // ==========================================
+    // RENDER LEAVE TABLE
+    // ==========================================
+
+    function renderLeaves(leaves) {
+
+        const tbody = document.getElementById("leaveTable");
+
+        if (!leaves.length) {
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="empty-message">
+                        No leave records for this date.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+        tbody.innerHTML = leaves.map(leave => {
+
+            const employee = employees.find(item =>
+                Number(item.employee_id) === Number(leave.employee_id)
+            );
+
+            const employeeName =
+                leave.employee_name ||
+                leave.full_name ||
+                (employee ? employee.full_name : "-");
+
+            const personnelCode =
+                leave.personnel_code ||
+                (employee ? employee.personnel_code : "-");
+
+            let leaveLabel = leave.leave_type;
+            let leaveClass = "leave-daily";
+
+            if (leave.leave_type === "DAILY") {
+                leaveLabel = "Daily Leave";
+                leaveClass = "leave-daily";
+            } else if (leave.leave_type === "HOURLY") {
+                leaveLabel = "Hourly Leave";
+                leaveClass = "leave-hourly";
+            } else if (leave.leave_type === "SICK") {
+                leaveLabel = "Sick Leave";
+                leaveClass = "leave-sick";
+            }
+
+            const timeText =
+                leave.leave_type === "HOURLY"
+                    ? `${leave.start_time || "-"} - ${leave.end_time || "-"}`
+                    : "-";
+
+            return `
+                <tr>
+                    <td>${escapeHtml(employeeName)}</td>
+                    <td>${escapeHtml(personnelCode)}</td>
+                    <td>
+                        <span class="leave-badge ${leaveClass}">
+                            ${escapeHtml(leaveLabel)}
+                        </span>
+                    </td>
+                    <td>${escapeHtml(leave.start_date || "-")}</td>
+                    <td>${escapeHtml(leave.end_date || "-")}</td>
+                    <td>${escapeHtml(timeText)}</td>
+                    <td>${escapeHtml(leave.notes || "-")}</td>
+                </tr>
+            `;
+
+        }).join("");
+    }
+
+
+    // ==========================================
+    // SUBMIT LEAVE
+    // ==========================================
+
+    async function submitLeave(event) {
+
+        event.preventDefault();
+
+        const button = document.getElementById("saveLeaveBtn");
+
+        const employeeId = Number(
+            document.getElementById("leaveEmployee").value
+        );
+
+        const leaveType =
+            document.getElementById("leaveType").value;
+
+        const startDate = getSelectedDate();
+
+        const endDateInput =
+            document.getElementById("leaveEndDate").value;
+
+        const startTime =
+            document.getElementById("leaveStartTime").value;
+
+        const endTime =
+            document.getElementById("leaveEndTime").value;
+
+        const notes =
+            document.getElementById("leaveNotes").value.trim();
+
+        if (!employeeId) {
+            showMessage("Please select an employee.", "error");
+            return;
+        }
+
+        if (!startDate) {
+            showMessage("Please select a date.", "error");
+            return;
+        }
+
+        if (leaveType === "HOURLY") {
+
+            if (!startTime || !endTime) {
+                showMessage(
+                    "Please enter start and end time.",
+                    "error"
+                );
+                return;
+            }
+
+            if (startTime >= endTime) {
+                showMessage(
+                    "End time must be after start time.",
+                    "error"
+                );
+                return;
+            }
+        }
+
+        let endDate = startDate;
+
+        if (leaveType === "SICK" && endDateInput) {
+            endDate = endDateInput;
+        }
+
+        if (leaveType === "SICK" && endDate < startDate) {
+            showMessage(
+                "End date cannot be before start date.",
+                "error"
+            );
+            return;
+        }
+
+        const payload = {
+            user_id: supervisorId,
+            employee_id: employeeId,
+            leave_type: leaveType,
+            start_date: startDate,
+            end_date: endDate,
+            start_time: leaveType === "HOURLY" ? startTime : null,
+            end_time: leaveType === "HOURLY" ? endTime : null,
+            notes: notes || null
+        };
+
+        button.disabled = true;
+        button.textContent = "SAVING...";
+
+        try {
+
+            await apiRequest(
+                "/api/attendance/leaves",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                }
+            );
+
+            showMessage("Leave registered successfully.");
+
+            document.getElementById("leaveForm").reset();
+
+            toggleLeaveFields();
+
+            await loadAll();
+
+        } catch (error) {
+
+            console.error(error);
+            showMessage(error.message, "error");
+
+        } finally {
+
+            button.disabled = false;
+            button.textContent = "REGISTER LEAVE";
+        }
+    }
+
+
+    // ==========================================
+    // RENDER EMPLOYEES
+    // ==========================================
+
+    function renderEmployees() {
+
+        const tbody = document.getElementById("employeeTable");
+
+        if (!employees.length) {
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="empty-message">
+                        No employees found.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+        tbody.innerHTML = employees.map((employee, index) => {
+
+            const isFullDayLeave =
+                employee.status === "LEAVE_DAILY" ||
+                employee.status === "SICK_LEAVE";
+
+            const isHourlyLeave =
+                employee.status === "LEAVE_HOURLY";
+
+            const isOnLeave = isFullDayLeave || isHourlyLeave;
+
+            const options = stations.map(station => {
+
+                const selected =
+                    Number(employee.station_id) === Number(station.id)
+                        ? "selected"
+                        : "";
+
+                return `
+                    <option value="${station.id}" ${selected}>
+                        ${escapeHtml(station.station_name)}
+                    </option>
+                `;
+
+            }).join("");
+
+            let status = "";
+
+            if (employee.status === "LEAVE_DAILY") {
+
+                status = `
+                    <span class="status status-leave">
+                        DAILY LEAVE
+                    </span>
+                `;
+
+            } else if (employee.status === "SICK_LEAVE") {
+
+                status = `
+                    <span class="status status-sick">
+                        SICK LEAVE
+                    </span>
+                `;
+
+            } else if (employee.status === "LEAVE_HOURLY") {
+
+                status = `
+                    <span class="status status-hourly">
+                        HOURLY LEAVE
+                    </span>
+                `;
+
+            } else if (employee.station_id) {
+
+                status = `
+                    <span class="status status-present">
+                        ASSIGNED
+                    </span>
+                `;
+
+            } else {
+
+                status = `
+                    <span class="status status-pending">
+                        NOT ASSIGNED
+                    </span>
+                `;
+            }
+
+            const leaveTime =
+                isHourlyLeave
+                    ? `<div class="save-info">
+                        ${escapeHtml(employee.leave_start_time || "-")}
+                        -
+                        ${escapeHtml(employee.leave_end_time || "-")}
+                       </div>`
+                    : "";
+
+            const stationDisabled = isFullDayLeave ? "disabled" : "";
+            const saveDisabled = isFullDayLeave ? "disabled" : "";
+
+            const stationCell = isFullDayLeave
+                ? `<span class="save-info">Not available during leave</span>`
+                : `
+                    <select
+                        class="station-select"
+                        id="station-${employee.employee_id}"
+                        data-employee-id="${employee.employee_id}"
+                        onchange="updateRowStatus(${employee.employee_id})"
+                        ${stationDisabled}
+                    >
+                        <option value="">Select Station</option>
+                        ${options}
+                    </select>
+                `;
+
+            return `
+                <tr id="employee-row-${employee.employee_id}">
+
+                    <td>${index + 1}</td>
+
+                    <td>
+                        ${escapeHtml(employee.personnel_code)}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(employee.full_name)}
+                        ${leaveTime}
+                    </td>
+
+                    <td>
+                        ${stationCell}
+                    </td>
+
+                    <td id="status-${employee.employee_id}">
+                        ${status}
+                    </td>
+
+                    <td>
+                        <button
+                            class="btn-save"
+                            id="save-${employee.employee_id}"
+                            onclick="saveSingleAssignment(${employee.employee_id})"
+                            ${saveDisabled}
+                        >
+                            SAVE
+                        </button>
+                    </td>
+
+                </tr>
+            `;
+
+        }).join("");
+    }
+
+
+    // ==========================================
+    // UPDATE ROW STATUS
+    // ==========================================
+
+    function updateRowStatus(employeeId) {
+
+        const employee = employees.find(item =>
+            Number(item.employee_id) === Number(employeeId)
+        );
+
+        if (
+            employee &&
+            (
+                employee.status === "LEAVE_DAILY" ||
+                employee.status === "SICK_LEAVE"
+            )
+        ) {
+            return;
+        }
+
+        const select = document.getElementById(
+            `station-${employeeId}`
+        );
+
+        const statusCell = document.getElementById(
+            `status-${employeeId}`
+        );
+
+        if (!select || !statusCell) {
+            return;
+        }
+
+        if (select.value) {
+
+            statusCell.innerHTML = `
+                <span class="status status-pending">
+                    READY TO SAVE
+                </span>
+            `;
+
+        } else {
+
+            statusCell.innerHTML = `
+                <span class="status status-pending">
+                    NOT ASSIGNED
+                </span>
+            `;
+        }
+    }
+
+
+    // ==========================================
+    // UPDATE STATISTICS
+    // ==========================================
+
+    function updateStatistics() {
+
+        const total = employees.length;
+
+        const leaveCount = employees.filter(employee =>
+            employee.status === "LEAVE_DAILY" ||
+            employee.status === "SICK_LEAVE"
+        ).length;
+
+        const assigned = employees.filter(employee =>
+            employee.station_id !== null &&
+            employee.station_id !== undefined &&
+            employee.status !== "LEAVE_DAILY" &&
+            employee.status !== "SICK_LEAVE"
+        ).length;
+
+        const notAssigned = total - assigned - leaveCount;
+
+        document.getElementById("totalEmployees").textContent =
+            total;
+
+        document.getElementById("assignedEmployees").textContent =
+            assigned;
+
+        document.getElementById("notAssignedEmployees").textContent =
+            notAssigned;
+
+        document.getElementById("leaveEmployees").textContent =
+            leaveCount;
+    }
+
+
+    // ==========================================
+    // SAVE SINGLE EMPLOYEE
+    // ==========================================
+
+    async function saveSingleAssignment(employeeId) {
+
+        const employee = employees.find(item =>
+            Number(item.employee_id) === Number(employeeId)
+        );
+
+        if (
+            employee &&
+            (
+                employee.status === "LEAVE_DAILY" ||
+                employee.status === "SICK_LEAVE"
+            )
+        ) {
+            showMessage(
+                "Employee is on leave and cannot be assigned.",
+                "error"
+            );
+            return;
+        }
+
+        const select = document.getElementById(
+            `station-${employeeId}`
+        );
+
+        const button = document.getElementById(
+            `save-${employeeId}`
+        );
+
+        if (!select || !button) {
+            return;
+        }
+
+        const stationId = Number(select.value);
+
+        if (!stationId) {
+            showMessage("Please select a station first.", "error");
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = "SAVING...";
+
+        try {
+
+            await apiRequest(
+                "/api/attendance/assign",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        user_id: supervisorId,
+                        employee_id: employeeId,
+                        station_id: stationId,
+                        attendance_date: getSelectedDate()
+
+                    })
+                }
+            );
+
+            showMessage(
+                "Employee assignment saved successfully."
+            );
+
+            await loadAll();
+
+        } catch (error) {
+
+            console.error(error);
+            showMessage(error.message, "error");
+
+        } finally {
+
+            button.disabled = false;
+            button.textContent = "SAVE";
+        }
+    }
+
+
+    // ==========================================
+    // SAVE ALL EMPLOYEES
+    // ==========================================
+
+    async function saveAllAssignments() {
+
+        const button = document.getElementById("saveAllBtn");
+
+        const assignments = [];
+
+        document.querySelectorAll(".station-select").forEach(select => {
+
+            const employeeId = Number(select.dataset.employeeId);
+            const stationId = Number(select.value);
+
+            if (employeeId && stationId && !select.disabled) {
+
+                assignments.push({
+                    employee_id: employeeId,
+                    station_id: stationId
+                });
+            }
+        });
+
+        if (assignments.length === 0) {
+
+            showMessage(
+                "Please select at least one station.",
+                "error"
+            );
+
+            return;
+        }
+
+        const confirmed = confirm(
+            `Save assignments for ${assignments.length} employees?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = "SAVING...";
+
+        try {
+
+            const result = await apiRequest(
+                "/api/attendance/assign-bulk",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        user_id: supervisorId,
+                        attendance_date: getSelectedDate(),
+                        assignments: assignments
+
+                    })
+                }
+            );
+
+            showMessage(
+                `Successfully saved ${result.total_assignments} assignments. ` +
+                `Changed: ${result.changed_count}, ` +
+                `Unchanged: ${result.unchanged_count}.`
+            );
+
+            await loadAll();
+
+        } catch (error) {
+
+            console.error(error);
+            showMessage(error.message, "error");
+
+        } finally {
+
+            button.disabled = false;
+            button.textContent = "SAVE ALL";
+        }
+    }
+
+
+    // ==========================================
+    // LOAD HISTORY
+    // ==========================================
+
+    async function loadHistory() {
+
+        const date = getSelectedDate();
+
+        const result = await apiRequest(
+            `/api/attendance/history/${LINE_ID}` +
+            `?user_id=${supervisorId}` +
+            `&attendance_date=${encodeURIComponent(date)}`
+        );
+
+        renderHistory(result.history || []);
+    }
+
+
+    // ==========================================
+    // FORMAT DATE TIME
+    // ==========================================
+
+    function formatJalaliDateTime(value) {
+
+        if (!value) {
+            return "-";
+        }
+
+        const date = new Date(value);
+
+        if (isNaN(date.getTime())) {
+            return value;
+        }
+
+        try {
+
+            return new Intl.DateTimeFormat("en-u-ca-persian", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+            }).format(date);
+
+        } catch (error) {
+
+            return date.toLocaleString();
+        }
+    }
+
+
+    // ==========================================
+    // RENDER HISTORY
+    // ==========================================
+
+    function renderHistory(history) {
+
+        const tbody = document.getElementById("historyTable");
+
+        if (!history.length) {
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="empty-message">
+                        No assignment history for this date.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+        tbody.innerHTML = history.map(record => {
+
+            const oldStation =
+                record.old_station_name ||
+                record.old_station ||
+                "Not Assigned";
+
+            const newStation =
+                record.new_station_name ||
+                record.new_station ||
+                "-";
+
+            return `
+                <tr>
+
+                    <td>
+                        ${escapeHtml(record.employee_name)}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(record.personnel_code)}
+                    </td>
+
+                    <td class="history-old">
+                        ${escapeHtml(oldStation)}
+                    </td>
+
+                    <td class="history-new">
+                        ${escapeHtml(newStation)}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(
+                            formatJalaliDateTime(record.changed_at)
+                        )}
+                    </td>
+
+                </tr>
+            `;
+
+        }).join("");
+    }
+
+
+    // ==========================================
+    // LOAD ALL DATA
+    // ==========================================
+
+    async function loadAll() {
+
+        if (!supervisorId) {
+            return;
+        }
+
+        try {
+
+            await Promise.all([
+                loadDailyAttendance(),
+                loadHistory(),
+                loadLeaves()
+            ]);
+
+        } catch (error) {
+
+            console.error(error);
+            showMessage(error.message, "error");
+        }
+    }
+
+
+    // ==========================================
+    // INITIALIZE PAGE
+    // ==========================================
+
+    async function initializePage() {
+
+        try {
+
+            document.getElementById("lineNumber").textContent =
+                LINE_ID;
+
+            document.getElementById("lineDisplay").value =
+                `Production Line ${LINE_ID}`;
+
+            document.getElementById("leaveForm").addEventListener(
+                "submit",
+                submitLeave
+            );
+
+            document.getElementById("leaveType").addEventListener(
+                "change",
+                toggleLeaveFields
+            );
+
+            initializePersianDatepicker();
+
+            toggleLeaveFields();
+
+            await loadSupervisor();
+
+            await loadStations();
+
+            await loadAll();
+
+        } catch (error) {
+
+            console.error(error);
+            showMessage(error.message, "error");
+        }
+    }
+
+
+    // START
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializePage
+    );
+
+</script>
+
+</body>
+</html>

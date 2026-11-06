@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Today Pack</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+
+    background: #0f172a;
+
+    color: white;
+
+    font-family: Arial, sans-serif;
+}
+
+.header {
+
+    padding: 20px 30px;
+
+    background: #111827;
+
+    border-bottom: 1px solid #334155;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+}
+
+.header h1 {
+
+    margin: 0;
+
+    font-size: 28px;
+}
+
+.header span {
+
+    color: #94a3b8;
+
+    font-size: 18px;
+}
+
+.container {
+
+    padding: 25px;
+}
+
+.back {
+
+    display: inline-block;
+
+    margin-bottom: 20px;
+
+    padding: 10px 18px;
+
+    background: #334155;
+
+    color: white;
+
+    text-decoration: none;
+
+    border-radius: 8px;
+}
+
+.back:hover {
+
+    background: #475569;
+}
+
+.table-box {
+
+    background: #111827;
+
+    border-radius: 12px;
+
+    overflow: auto;
+
+    border: 1px solid #334155;
+}
+
+table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+
+    min-width: 1000px;
+}
+
+thead {
+
+    background: #1e293b;
+}
+
+th {
+
+    padding: 15px;
+
+    text-align: center;
+
+    color: #cbd5e1;
+
+    font-size: 14px;
+
+    border-bottom: 1px solid #334155;
+}
+
+td {
+
+    padding: 13px;
+
+    text-align: center;
+
+    border-bottom: 1px solid #1e293b;
+
+    font-size: 14px;
+}
+
+tbody tr:hover {
+
+    background: #172033;
+}
+
+.product-aio {
+
+    color: #38bdf8;
+
+    font-weight: bold;
+}
+
+.product-mnt {
+
+    color: #a78bfa;
+
+    font-weight: bold;
+}
+
+.product-case {
+
+    color: #fbbf24;
+
+    font-weight: bold;
+}
+
+.product-nb {
+
+    color: #22c55e;
+
+    font-weight: bold;
+}
+
+.empty {
+
+    text-align: center;
+
+    padding: 40px;
+
+    color: #64748b;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="header">
+
+    <h1>
+        Today Pack
+    </h1>
+
+    <span>
+        Line {{ line_id }}
+    </span>
+
+</div>
+
+
+<div class="container">
+
+
+    <a
+        href="/supervisor/{{ line_id }}"
+        class="back"
+    >
+        ← Back to Supervisor
+    </a>
+
+
+    <div class="table-box">
+
+
+        <table>
+
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        ID
+                    </th>
+
+                    <th>
+                        Time
+                    </th>
+
+                    <th>
+                        Serial Number
+                    </th>
+
+                    <th>
+                        Order Number
+                    </th>
+
+                    <th>
+                        Order Code
+                    </th>
+
+                    <th>
+                        Product Type
+                    </th>
+
+                    <th>
+                        Actions
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody id="packTable">
+
+                <tr>
+
+                    <td
+                        colspan="7"
+                        class="empty"
+                    >
+                        Loading...
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+
+        </table>
+
+
+    </div>
+
+
+</div>
+
+
+<script>
+
+const lineId = {{ line_id }};
+
+
+async function loadPack() {
+
+    try {
+
+        const response = await fetch(
+            `/api/supervisor/pack/today/${lineId}`
+        );
+
+        const data = await response.json();
+
+        const table =
+            document.getElementById("packTable");
+
+
+        if (!data || data.length === 0) {
+
+            table.innerHTML = `
+
+                <tr>
+
+                    <td
+                        colspan="7"
+                        class="empty"
+                    >
+                        No Pack Records Today
+                    </td>
+
+                </tr>
+
+            `;
+
+            return;
+        }
+
+
+        table.innerHTML = data.map(item => {
+
+
+            let productClass = "";
+
+
+            if (item.product_type === "AIO") {
+
+                productClass = "product-aio";
+
+            }
+
+            else if (item.product_type === "MNT") {
+
+                productClass = "product-mnt";
+
+            }
+
+            else if (item.product_type === "CASE") {
+
+                productClass = "product-case";
+
+            }
+
+            else if (item.product_type === "NB") {
+
+                productClass = "product-nb";
+
+            }
+
+
+            return `
+
+                <tr>
+
+                    <td>
+                        ${item.id}
+                    </td>
+
+                    <td>
+                        ${item.time}
+                    </td>
+
+                    <td>
+                        ${item.serial_number}
+                    </td>
+
+                    <td>
+                        ${item.order_number}
+                    </td>
+
+                    <td>
+                        ${item.order_code || "-"}
+                    </td>
+
+                    <td class="${productClass}">
+                        ${item.product_type || "-"}
+                    </td>
+
+                    <td>
+
+                        <button
+                            onclick="editPack(${item.id}, '${item.order_number}', '${item.serial_number}')"
+                            style="
+                                background:#2563eb;
+                                color:white;
+                                border:none;
+                                padding:7px 12px;
+                                border-radius:6px;
+                                cursor:pointer;
+                                margin-right:5px;
+                            "
+                        >
+                            Edit
+                        </button>
+
+                        <button
+                            onclick="deletePack(${item.id})"
+                            style="
+                                background:#dc2626;
+                                color:white;
+                                border:none;
+                                padding:7px 12px;
+                                border-radius:6px;
+                                cursor:pointer;
+                            "
+                        >
+                            Delete
+                        </button>
+
+                    </td>
+
+                </tr>
+
+            `;
+
+        }).join("");
+
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        document.getElementById(
+            "packTable"
+        ).innerHTML = `
+
+            <tr>
+
+                <td
+                    colspan="7"
+                    class="empty"
+                >
+                    Error Loading Data
+                </td>
+
+            </tr>
+
+        `;
+
+    }
+
+}
+
+
+loadPack();
+
+
+setInterval(
+    loadPack,
+    5000
+);
+
+async function editPack(
+    id,
+    currentOrderNumber,
+    currentSerialNumber
+) {
+
+    const orderNumber = prompt(
+        "Enter Order Number:",
+        currentOrderNumber
+    );
+
+    if (orderNumber === null) {
+        return;
+    }
+
+
+    const serialNumber = prompt(
+        "Enter Serial Number:",
+        currentSerialNumber
+    );
+
+    if (serialNumber === null) {
+        return;
+    }
+
+
+    const response = await fetch(
+        `/api/supervisor/pack/${id}`,
+        {
+            method: "PUT",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                order_number: orderNumber,
+                serial_number: serialNumber
+            })
+        }
+    );
+
+
+    const result = await response.json();
+
+
+    if (result.error) {
+
+        alert(result.error);
+
+        return;
+    }
+
+
+    alert(
+        "Pack Updated Successfully"
+    );
+
+
+    loadPack();
+}
+
+
+
+async function deletePack(id) {
+
+    const confirmDelete = confirm(
+        "Are you sure you want to delete this Pack record?"
+    );
+
+
+    if (!confirmDelete) {
+        return;
+    }
+
+
+    const response = await fetch(
+        `/api/supervisor/pack/${id}`,
+        {
+            method: "DELETE"
+        }
+    );
+
+
+    const result = await response.json();
+
+
+    if (result.error) {
+
+        alert(result.error);
+
+        return;
+    }
+
+
+    alert(
+        "Pack Deleted Successfully"
+    );
+
+
+    loadPack();
+}
+
+</script>
+
+
+</body>
+
+</html>

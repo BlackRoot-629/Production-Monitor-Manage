@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Export Data</title>
+
+<style>
+
+body{
+
+    background:#0f172a;
+
+    color:white;
+
+    font-family:Tahoma;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    height:100vh;
+
+}
+
+.card{
+
+    background:#1e293b;
+
+    padding:40px;
+
+    border-radius:20px;
+
+    text-align:center;
+
+    width:500px;
+
+}
+
+button{
+
+    width:100%;
+
+    padding:20px;
+
+    font-size:22px;
+
+    border:none;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+}
+
+.export{
+
+    background:#22c55e;
+
+    color:white;
+
+}
+.export_pack{
+    margin-top:15px;
+
+    background:#22c55e;
+
+    color:white;
+
+}
+.export_assembly{
+    margin-top:15px;
+
+    background: #18cfff;
+
+    color:white;
+}
+
+.back{
+
+    margin-top:15px;
+
+    background:#3b82f6;
+
+    color:white;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="card">
+
+<h1>
+
+Export Data
+
+</h1>
+
+<button
+    class="export_assembly"
+
+    onclick="window.location.href='/api/export/assemblytoday'"
+>
+
+Download today Assembly
+
+</button>
+
+<button
+    class="export_pack"
+
+    onclick="window.location.href='/api/export/today'"
+>
+
+Download Today Pack
+
+</button>
+
+<button
+    class="export_assembly"
+
+    onclick="window.location.href='/api/export/assemblyhistory'"
+>
+
+Download Assembly History
+
+</button>
+
+<button
+
+    class="export_pack"
+
+    onclick="window.location.href='/api/export'"
+
+>
+
+Download Pack History
+
+</button>
+
+
+
+<button
+
+    class="back"
+
+    onclick="window.location.href='/admin'"
+
+>
+
+Back
+
+</button>
+
+</div>
+
+</body>
+
+</html>

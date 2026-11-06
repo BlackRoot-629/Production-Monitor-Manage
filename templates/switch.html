@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Switch Registration</title>
+
+<style>
+
+body{
+    background:#0f172a;
+    color:white;
+    font-family:Tahoma;
+    margin:20px;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+}
+
+h1{
+    text-align:center;
+    font-size:40px;
+}
+
+.card{
+    background:#1e293b;
+    border-radius:20px;
+    padding:20px;
+    margin-bottom:20px;
+}
+
+button{
+    width:100%;
+    padding:20px;
+    font-size:24px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+}
+
+#message{
+    text-align:center;
+    font-size:24px;
+    margin-top:15px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    padding:12px;
+    text-align:center;
+    border-bottom:1px solid #334155;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>
+
+Line {{ line_id }} Switch
+
+</h1>
+
+<div class="card">
+
+<button onclick="saveSwitch()">
+
+Register Switch
+
+</button>
+
+<div id="message"></div>
+
+</div>
+
+<div class="card">
+
+<h2>
+
+Last Switches
+
+</h2>
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>
+
+Date & Time
+
+</th>
+
+</tr>
+
+</thead>
+
+<tbody id="switchTable">
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+<script>
+
+async function saveSwitch(){
+
+    const response = await fetch(
+
+        "/api/switch/{{ line_id }}",
+
+        {
+
+            method:"POST",
+
+            headers:{
+                "Content-Type":
+                "application/json"
+            },
+
+            body:JSON.stringify({
+
+                line_id:
+                {{ line_id }}
+
+            },
+)
+
+        }
+
+    );
+
+    const result =
+        await response.json();
+
+    document.getElementById(
+        "message"
+    ).innerText =
+
+        result.message ||
+        result.error;
+
+    loadSwitches();
+
+}
+
+async function loadSwitches(){
+
+    const response = await fetch(
+
+        "/api/switch/{{ line_id }}"
+
+    );
+
+    const data =
+        await response.json();
+
+    let html = "";
+
+    data.forEach(item=>{
+
+        html += `
+
+        <tr>
+
+            <td>
+
+                ${item.time}
+
+            </td>
+
+        </tr>
+
+        `;
+
+    });
+
+    document.getElementById(
+        "switchTable"
+    ).innerHTML = html;
+
+}
+
+loadSwitches();
+
+</script>
+
+</body>
+
+</html>

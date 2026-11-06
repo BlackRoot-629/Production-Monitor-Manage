@@ -1,0 +1,2929 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Production Dashboard</title>
+
+<style>
+
+/* =====================================================
+   GLOBAL
+===================================================== */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+}
+
+body {
+
+    background:
+        radial-gradient(
+            circle at 50% -20%,
+            #173d68 0%,
+            #0b203b 35%,
+            #061426 70%,
+            #030b16 100%
+        );
+
+    color: #ffffff;
+
+    font-family:
+        Arial,
+        Tahoma,
+        sans-serif;
+
+    overflow-x: hidden;
+}
+
+
+/* =====================================================
+   MAIN
+===================================================== */
+
+.dashboard {
+
+    width: 100%;
+
+    min-height: 100vh;
+
+    padding: 14px 16px 18px;
+}
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 16px;
+}
+
+
+.header-title {
+
+    font-size: 30px;
+
+    font-weight: 800;
+
+    letter-spacing: .5px;
+
+    text-shadow:
+        0 0 18px
+        rgba(50,170,255,.35);
+}
+
+
+.header-subtitle {
+
+    margin-top: 5px;
+
+    color: #7fa3ca;
+
+    font-size: 13px;
+}
+
+
+.clock {
+
+    min-width: 126px;
+
+    padding: 11px 18px;
+
+    border-radius: 11px;
+
+    text-align: center;
+
+    font-size: 16px;
+
+    border:
+        1px solid
+        rgba(70,160,255,.35);
+
+    background:
+        rgba(10,29,52,.75);
+
+    box-shadow:
+        inset 0 0 20px
+        rgba(30,130,255,.06),
+
+        0 5px 20px
+        rgba(0,0,0,.25);
+}
+
+
+/* =====================================================
+   SIX LINE GRID
+===================================================== */
+
+.lines {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+
+    gap: 16px;
+
+    align-items: stretch;
+}
+
+
+/* =====================================================
+   LINE CARD
+===================================================== */
+
+.line-card {
+
+    min-width: 0;
+
+    padding: 13px;
+
+    border-radius: 17px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(18,48,81,.96),
+            rgba(5,17,32,.98)
+        );
+
+    border:
+        1px solid
+        rgba(70,160,255,.30);
+
+    box-shadow:
+
+        0 12px 35px
+        rgba(0,0,0,.45),
+
+        inset 0 0 25px
+        rgba(50,150,255,.035);
+
+    transition: .2s;
+}
+
+
+.line-card:hover {
+
+    border-color:
+        rgba(50,180,255,.55);
+
+    box-shadow:
+
+        0 15px 45px
+        rgba(0,0,0,.55),
+
+        0 0 25px
+        rgba(0,130,255,.10);
+}
+
+
+/* =====================================================
+   LINE HEADER
+===================================================== */
+
+.line-header {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-bottom: 10px;
+}
+
+
+.line-title {
+
+    font-size: 21px;
+
+    font-weight: 800;
+}
+
+
+.status {
+
+    padding: 4px 11px;
+
+    border-radius: 20px;
+
+    font-size: 10px;
+
+    font-weight: bold;
+
+    letter-spacing: .3px;
+}
+
+
+.status.running {
+
+    color: #37f59a;
+
+    border:
+        1px solid
+        #16c878;
+
+    background:
+        rgba(20,220,120,.09);
+
+    box-shadow:
+        0 0 12px
+        rgba(20,220,120,.20);
+}
+
+
+.status.stopped {
+
+    color: #ff5555;
+
+    border:
+        1px solid
+        #e83b3b;
+
+    background:
+        rgba(255,40,40,.09);
+
+    box-shadow:
+        0 0 12px
+        rgba(255,40,40,.18);
+}
+
+
+/* =====================================================
+   ASSEMBLY / PACK TOTAL
+===================================================== */
+
+.main-counts {
+
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 10px;
+
+    margin-bottom: 10px;
+}
+
+
+.count-card {
+
+    padding: 9px 10px;
+
+    border-radius: 11px;
+
+    background:
+        rgba(1,12,27,.82);
+
+    border:
+        1px solid
+        rgba(60,140,220,.16);
+
+    text-align: center;
+}
+
+
+.count-title {
+
+    color: #849ab6;
+
+    font-size: 11px;
+
+    font-weight: bold;
+
+    margin-bottom: 4px;
+}
+
+
+.count-value {
+
+    font-size: 27px;
+
+    font-weight: 800;
+}
+
+
+.count-assembly {
+
+    color: #1edcff;
+
+    text-shadow:
+        0 0 14px
+        rgba(30,220,255,.50);
+}
+
+
+.count-pack {
+
+    color: #38f59a;
+
+    text-shadow:
+        0 0 14px
+        rgba(40,245,150,.40);
+}
+
+
+/* =====================================================
+   PRODUCT SECTIONS
+===================================================== */
+
+.product-section {
+
+    padding: 9px;
+
+    margin-bottom: 8px;
+
+    border-radius: 10px;
+
+    background:
+        rgba(3,15,29,.70);
+
+    border:
+        1px solid
+        rgba(60,140,220,.16);
+}
+
+
+.section-title {
+
+    margin-bottom: 7px;
+
+    font-size: 11px;
+
+    font-weight: bold;
+
+    color: #24ddff;
+}
+
+
+.section-title.pack {
+
+    color: #38f59a;
+}
+.section-title.repair {
+
+    color: #c23535;
+
+    font-size: 13px;
+
+}
+
+
+.products {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+    gap: 5px;
+}
+
+
+.product {
+
+    padding: 6px 3px;
+
+    border-radius: 7px;
+
+    text-align: center;
+
+    background:
+        rgba(0,7,18,.72);
+}
+
+
+.product-name {
+
+    color: #7088a7;
+
+    font-size: 9px;
+}
+
+
+.product-value {
+
+    margin-top: 3px;
+
+    font-size: 14px;
+
+    font-weight: bold;
+}
+
+
+/* =====================================================
+   TOTAL INSIDE LINE
+===================================================== */
+
+.line-total {
+
+    margin-top: 7px;
+
+    padding-top: 6px;
+
+    border-top:
+        1px solid
+        rgba(80,140,190,.13);
+
+    text-align: right;
+
+    color: #7890ad;
+
+    font-size: 10px;
+}
+
+
+.line-total strong {
+
+    font-size: 14px;
+
+    margin-left: 4px;
+}
+
+
+.line-total.assembly strong {
+
+    color: #21dfff;
+}
+
+
+.line-total.pack strong {
+
+    color: #38f59a;
+}
+.line-total.repair strong{
+    color: #c23535
+}
+
+
+/* =====================================================
+   DETAILS
+===================================================== */
+
+.details {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(6, minmax(0, 1fr));
+
+    gap: 5px;
+
+    margin-top: 9px;
+}
+
+
+.detail {
+
+    min-width: 0;
+
+    padding: 7px 3px;
+
+    border-radius: 7px;
+
+    text-align: center;
+
+    background:
+        rgba(11,31,53,.65);
+
+    border:
+        1px solid
+        rgba(70,140,200,.12);
+}
+
+
+.detail-label {
+
+    color: #7690ae;
+
+    font-size: 8px;
+
+    white-space: nowrap;
+}
+
+
+.detail-value {
+
+    margin-top: 3px;
+
+    font-size: 12px;
+
+    font-weight: bold;
+
+    white-space: nowrap;
+}
+
+
+.good {
+
+    color: #38f59a;
+}
+
+
+.bad {
+
+    color: #ff4d55;
+}
+
+
+/* =====================================================
+   BOTTOM AREA
+===================================================== */
+
+.bottom-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        1.05fr 1.15fr 1.35fr 1.15fr;
+
+    gap: 14px;
+
+    margin-top: 16px;
+}
+
+
+/* =====================================================
+   BOTTOM PANEL
+===================================================== */
+
+.panel {
+
+    min-height: 150px;
+
+    padding: 15px;
+
+    border-radius: 14px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(13,35,60,.95),
+            rgba(5,15,29,.98)
+        );
+
+    border:
+        1px solid
+        rgba(65,150,230,.23);
+
+    box-shadow:
+        0 10px 30px
+        rgba(0,0,0,.35);
+}
+
+
+.panel-title {
+
+    margin-bottom: 12px;
+
+    font-size: 14px;
+
+    font-weight: bold;
+}
+
+
+/* =====================================================
+   TOTAL SUMMARY
+===================================================== */
+
+.summary-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 8px;
+}
+
+
+.summary-item {
+
+    padding: 9px;
+
+    border-radius: 9px;
+
+    background:
+        rgba(2,12,24,.60);
+}
+
+
+.summary-label {
+
+    color: #7790ae;
+
+    font-size: 9px;
+}
+
+
+.summary-value {
+
+    margin-top: 4px;
+
+    font-size: 20px;
+
+    font-weight: bold;
+}
+
+
+/* =====================================================
+   DONUT
+===================================================== */
+
+.distribution {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 15px;
+}
+
+
+.donut {
+
+    width: 105px;
+
+    height: 105px;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background:
+        conic-gradient(
+            #18cfff 0deg 97deg,
+            #32ed96 97deg 177deg,
+            #ffae32 177deg 238deg,
+            #9d5cff 238deg 360deg
+        );
+
+    position: relative;
+
+    box-shadow:
+        0 0 20px
+        rgba(30,180,255,.15);
+}
+
+
+.donut::after {
+
+    content: "";
+
+    position: absolute;
+
+    inset: 25px;
+
+    border-radius: 50%;
+
+    background: #091a2d;
+}
+
+
+.donut-center {
+
+    position: absolute;
+
+    z-index: 2;
+
+    inset: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    flex-direction: column;
+
+    font-weight: bold;
+
+    font-size: 17px;
+}
+
+
+.donut-center span {
+
+    color: #7790ae;
+
+    font-size: 8px;
+
+    font-weight: normal;
+}
+
+
+.legend {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 7px;
+
+    font-size: 10px;
+}
+
+
+.legend-row {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    color: #b8c8db;
+}
+
+
+.legend-dot {
+
+    width: 8px;
+
+    height: 8px;
+
+    border-radius: 50%;
+}
+
+
+.dot-aio {
+    background: #18cfff;
+}
+
+.dot-mnt {
+    background: #32ed96;
+}
+
+.dot-case {
+    background: #ffae32;
+}
+
+.dot-nb {
+    background: #9d5cff;
+}
+
+
+/* =====================================================
+   BAR CHART
+===================================================== */
+
+.chart-area {
+
+    height: 105px;
+
+    display: flex;
+
+    align-items: flex-end;
+
+    justify-content: space-around;
+
+    padding-top: 10px;
+}
+
+
+.bar-column {
+
+    height: 100%;
+
+    display: flex;
+
+    align-items: flex-end;
+
+    gap: 3px;
+}
+
+
+.bar {
+
+    width: 9px;
+
+    min-height: 2px;
+
+    border-radius:
+        3px 3px 0 0;
+}
+
+
+.bar-assembly {
+
+    background:
+        linear-gradient(
+            to top,
+            #0876ce,
+            #21dfff
+        );
+
+    box-shadow:
+        0 0 8px
+        rgba(20,180,255,.20);
+}
+
+
+.bar-pack {
+
+    background:
+        linear-gradient(
+            to top,
+            #07985e,
+            #38f59a
+        );
+
+    box-shadow:
+        0 0 8px
+        rgba(30,240,150,.15);
+}
+
+.bar-repair {
+
+    background:
+        linear-gradient(
+            to top,
+            #980737,
+            #c20000
+        );
+
+    box-shadow:
+        0 0 8px
+        rgba(30,240,150,.15);
+}
+
+
+.chart-labels {
+
+    display: flex;
+
+    justify-content:
+        space-around;
+
+    margin-top: 4px;
+
+    color: #728aa7;
+
+    font-size: 8px;
+}
+
+
+/* =====================================================
+   LINE STATUS
+===================================================== */
+
+.line-status {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 15px;
+}
+
+
+.status-donut {
+
+    width: 100px;
+
+    height: 100px;
+
+    border-radius: 50%;
+
+    background:
+        conic-gradient(
+            #23e892 0deg 360deg
+        );
+
+    position: relative;
+}
+
+
+.status-donut::after {
+
+    content: "";
+
+    position: absolute;
+
+    inset: 25px;
+
+    background: #091a2d;
+
+    border-radius: 50%;
+}
+
+
+.status-number {
+
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 2;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    flex-direction: column;
+
+    font-size: 18px;
+
+    font-weight: bold;
+}
+
+
+.status-number span {
+
+    font-size: 8px;
+
+    color: #7790ae;
+
+    font-weight: normal;
+}
+
+
+.status-list {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 9px;
+
+    font-size: 10px;
+}
+
+
+.status-row {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+}
+
+
+.status-dot {
+
+    width: 9px;
+
+    height: 9px;
+
+    border-radius: 50%;
+}
+
+
+.status-running {
+    background: #25e993;
+}
+
+.status-stopped {
+    background: #ff4848;
+}
+
+
+/* =====================================================
+   FOOTER
+===================================================== */
+
+.footer {
+
+    margin-top: 12px;
+
+    text-align: center;
+
+    color: #536c89;
+
+    font-size: 9px;
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media(max-width:1200px) {
+
+    .lines {
+
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .bottom-grid {
+
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+}
+
+
+@media(max-width:750px) {
+
+    .dashboard {
+
+        padding: 10px;
+    }
+
+    .header {
+
+        align-items: flex-start;
+    }
+
+    .header-title {
+
+        font-size: 22px;
+    }
+
+    .clock {
+
+        min-width: auto;
+
+        font-size: 12px;
+    }
+
+    .lines {
+
+        grid-template-columns: 1fr;
+    }
+
+    .bottom-grid {
+
+        grid-template-columns: 1fr;
+    }
+}
+
+.product-current {
+
+    display: flex;
+
+    gap: 6px;
+
+    margin-bottom: 10px;
+
+    font-size: 10px;
+
+}
+
+.current-product {
+
+    flex: 1;
+
+    padding: 6px 8px;
+
+    border-radius: 8px;
+
+    background:
+        rgba(1,12,27,.72);
+
+    border:
+        1px solid
+        rgba(60,140,220,.16);
+
+    color: #8da5c2;
+
+}
+
+.current-product strong {
+
+    margin-left: 4px;
+
+    color: #ffffff;
+
+    font-size: 11px;
+
+}
+
+.repair-section {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(1, 12, 27, .72);
+    border: 1px solid rgba(60, 140, 220, .16);
+}
+
+.section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    color: #8da5c2;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.section-title span {
+    color: #ffffff;
+    font-size: 10px;
+}
+
+.repair-products {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+}
+
+.repair-item {
+    text-align: center;
+    padding: 7px 4px;
+    border-radius: 7px;
+    background: rgba(0,7,18,.72);
+}
+
+.repair-label {
+    font-size: 9px;
+    color: #7088a7;
+    margin-bottom: 3px;
+}
+
+.repair-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+
+/* =====================================================
+   PERSONNEL MANAGEMENT TAB
+===================================================== */
+.dashboard-tabs {
+    display: flex;
+    gap: 10px;
+    margin: 0 0 16px;
+    padding: 8px;
+    border: 1px solid rgba(70,160,255,.25);
+    border-radius: 13px;
+    background: rgba(5,18,34,.82);
+}
+.dashboard-tab {
+    border: 1px solid transparent;
+    border-radius: 9px;
+    padding: 11px 18px;
+    color: #91aac8;
+    background: transparent;
+    font-weight: 700;
+    cursor: pointer;
+    transition: .2s;
+}
+.dashboard-tab.active {
+    color: #fff;
+    border-color: rgba(55,170,255,.45);
+    background: linear-gradient(135deg, #14518a, #0d3156);
+    box-shadow: 0 0 18px rgba(30,140,255,.13);
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.personnel-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+    margin-bottom: 15px;
+    padding: 15px;
+    border: 1px solid rgba(70,160,255,.23);
+    border-radius: 13px;
+    background: rgba(8,26,46,.88);
+}
+.personnel-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.personnel-field label {
+    color: #8ca8c8;
+    font-size: 11px;
+}
+.personnel-field select,
+.personnel-field input {
+    min-width: 155px;
+    padding: 10px 12px;
+    color: #fff;
+    background: #07182b;
+    border: 1px solid rgba(80,150,220,.35);
+    border-radius: 8px;
+    outline: none;
+}
+.personnel-refresh {
+    padding: 10px 17px;
+    border: 1px solid rgba(45,170,255,.45);
+    border-radius: 8px;
+    color: #fff;
+    background: #124c7d;
+    cursor: pointer;
+    font-weight: 700;
+}
+.personnel-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 15px;
+}
+.personnel-stat {
+    padding: 15px;
+    min-width: 0;
+    border: 1px solid rgba(70,160,255,.22);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(18,48,81,.94), rgba(5,17,32,.98));
+}
+.personnel-stat-label {
+    color: #88a3c2;
+    font-size: 11px;
+}
+.personnel-stat-value {
+    margin-top: 7px;
+    font-size: 27px;
+    font-weight: 800;
+    color: #eaf5ff;
+}
+.personnel-stat-value.blue { color: #27d7ff; }
+.personnel-stat-value.green { color: #39e99a; }
+.personnel-stat-value.red { color: #ff7474; }
+.personnel-panel {
+    margin-bottom: 15px;
+    padding: 16px;
+    border: 1px solid rgba(70,160,255,.23);
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(13,35,60,.96), rgba(5,15,29,.98));
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+.personnel-panel-title {
+    margin-bottom: 12px;
+    color: #d8eaff;
+    font-size: 15px;
+    font-weight: 800;
+}
+.personnel-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+.personnel-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 720px;
+    font-size: 12px;
+}
+.personnel-table th {
+    padding: 11px 9px;
+    color: #8fb5dc;
+    background: rgba(2,12,24,.72);
+    text-align: right;
+    white-space: nowrap;
+}
+.personnel-table td {
+    padding: 10px 9px;
+    border-top: 1px solid rgba(80,140,190,.13);
+    color: #dce9f8;
+    text-align: right;
+}
+.personnel-table tbody tr:hover {
+    background: rgba(35,125,205,.08);
+}
+.personnel-pill {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.personnel-pill.active { color: #5cf0a8; background: rgba(25,190,110,.12); }
+.personnel-pill.inactive { color: #ff9292; background: rgba(220,55,55,.13); }
+.personnel-pill.assigned { color: #60d9ff; background: rgba(25,160,220,.13); }
+.personnel-pill.unassigned { color: #ffd27b; background: rgba(220,155,35,.13); }
+.personnel-pill.daily { color: #ffcf73; background: rgba(220,155,35,.13); }
+.personnel-pill.hourly { color: #71d8ff; background: rgba(35,150,220,.13); }
+.personnel-pill.sick { color: #ff9696; background: rgba(220,55,55,.13); }
+.personnel-empty, .personnel-loading {
+    padding: 25px !important;
+    text-align: center !important;
+    color: #7894b3 !important;
+}
+.personnel-message {
+    display: none;
+    margin-bottom: 13px;
+    padding: 11px 13px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+.personnel-message.error {
+    display: block;
+    color: #ffc4c4;
+    background: rgba(150,25,25,.22);
+    border: 1px solid rgba(255,80,80,.35);
+}
+.personnel-message.info {
+    display: block;
+    color: #b9ddff;
+    background: rgba(25,100,170,.18);
+    border: 1px solid rgba(70,160,255,.3);
+}
+@media(max-width:1050px) {
+    .personnel-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media(max-width:650px) {
+    .dashboard-tabs { display: grid; grid-template-columns: 1fr 1fr; }
+    .dashboard-tab { padding: 10px 8px; font-size: 11px; }
+    .personnel-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+.jalali-date-input {
+    direction: ltr;
+    text-align: center;
+    cursor: pointer;
+}
+.datepicker-plot-area {
+    font-family: Tahoma, Arial, sans-serif;
+    z-index: 99999 !important;
+}
+.personnel-show-all-note {
+    color: #88a3c2;
+    font-size: 11px;
+    text-align: center;
+    margin-top: 8px;
+}
+
+</style>
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+
+</head>
+
+
+<body>
+
+
+<div class="dashboard">
+
+
+    <!-- =================================================
+         HEADER
+    ================================================== -->
+
+    <div class="header">
+
+        <div>
+
+            <div class="header-title">
+                PRODUCTION DASHBOARD
+            </div>
+
+            <div class="header-subtitle">
+                Real-Time Production Monitoring · 6 Lines
+            </div>
+
+        </div>
+
+
+        <div
+            class="clock"
+            id="clock"
+        >
+            --:--:--
+        </div>
+
+    </div>
+
+
+
+    <div class="dashboard-tabs">
+        <button class="dashboard-tab active" id="productionTabBtn"
+                onclick="switchDashboardTab('production')">PRODUCTION</button>
+        <button class="dashboard-tab" id="personnelTabBtn"
+                onclick="switchDashboardTab('personnel')">PERSONNEL MANAGEMENT</button>
+    </div>
+
+    <div class="tab-panel active" id="productionTabPanel">
+
+    <!-- =================================================
+         SIX LINES
+    ================================================== -->
+
+    <div
+        class="lines"
+        id="lines"
+    >
+
+    </div>
+
+
+    <!-- =================================================
+         BOTTOM
+    ================================================== -->
+
+    <div class="bottom-grid">
+
+
+        <!-- TOTAL SUMMARY -->
+
+        <div class="panel">
+
+            <div class="panel-title">
+                TOTAL SUMMARY
+            </div>
+
+
+            <div
+                class="summary-grid"
+                id="summary"
+            >
+
+            </div>
+
+        </div>
+
+
+        <!-- PRODUCT DISTRIBUTION -->
+
+        <div class="panel">
+
+            <div class="panel-title">
+                PRODUCT DISTRIBUTION (PACK)
+            </div>
+
+
+            <div class="distribution">
+
+                <div class="donut">
+
+                    <div
+                        class="donut-center"
+                        id="donutTotal"
+                    >
+                        0
+
+                        <span>
+                            Total Pack
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="legend"
+                    id="legend"
+                >
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ASSEMBLY VS PACK -->
+
+        <div class="panel">
+
+            <div class="panel-title">
+
+                ASSEMBLY vs PACK
+
+                <span
+                    style="
+                        float:right;
+                        font-size:9px;
+                        color:#7f96b2;
+                    "
+                >
+                    ■ Assembly
+                    &nbsp;
+                    ■ Pack
+                </span>
+
+            </div>
+
+
+            <div
+                class="chart-area"
+                id="chart"
+            >
+
+            </div>
+
+
+            <div
+                class="chart-labels"
+                id="chartLabels"
+            >
+
+            </div>
+
+        </div>
+
+
+        <!-- LINE STATUS -->
+
+        <div class="panel">
+
+            <div class="panel-title">
+                LINE STATUS
+            </div>
+
+
+            <div class="line-status">
+
+                <div class="status-donut">
+
+                    <div
+                        class="status-number"
+                        id="onlineCount"
+                    >
+
+                        0
+
+                        <span>
+                            Lines Online
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="status-list"
+                    id="statusList"
+                >
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+    </div>
+
+
+    <div class="footer">
+
+        FactoryPro
+        &nbsp; | &nbsp;
+        Real-Time Production Monitoring
+        &nbsp; | &nbsp;
+        Production Control
+
+    </div>
+
+    </div><!-- /productionTabPanel -->
+
+    <div class="tab-panel" id="personnelTabPanel">
+        <div id="personnelMessage" class="personnel-message"></div>
+
+        <div class="personnel-toolbar">
+            <div class="personnel-field">
+                <label for="personnelLineFilter">PRODUCTION LINE</label>
+                <select id="personnelLineFilter" onchange="renderPersonnelDashboard()">
+                    <option value="all">ALL LINES</option>
+                    <option value="1">LINE 1</option><option value="2">LINE 2</option>
+                    <option value="3">LINE 3</option><option value="4">LINE 4</option>
+                    <option value="5">LINE 5</option><option value="6">LINE 6</option>
+                </select>
+            </div>
+            <div class="personnel-field">
+                <label for="leaveStartDate">LEAVE FROM</label>
+                <input type="text" id="leaveStartDate" class="jalali-date-input" placeholder="۱۴۰۵/۰۸/۱۵" readonly>
+            </div>
+            <div class="personnel-field">
+                <label for="leaveEndDate">LEAVE TO</label>
+                <input type="text" id="leaveEndDate" class="jalali-date-input" placeholder="۱۴۰۵/۰۸/۱۵" readonly>
+            </div>
+            <button class="personnel-refresh" onclick="loadPersonnelDashboard()">REFRESH DATA</button>
+        </div>
+
+        <div class="personnel-stats">
+            <div class="personnel-stat"><div class="personnel-stat-label">TOTAL PERSONNEL</div><div class="personnel-stat-value blue" id="personnelTotal">0</div></div>
+            <div class="personnel-stat"><div class="personnel-stat-label">ACTIVE</div><div class="personnel-stat-value green" id="personnelActive">0</div></div>
+            <div class="personnel-stat"><div class="personnel-stat-label">INACTIVE</div><div class="personnel-stat-value red" id="personnelInactive">0</div></div>
+            <div class="personnel-stat"><div class="personnel-stat-label">STATION ASSIGNED TODAY</div><div class="personnel-stat-value" id="personnelAssigned">0</div></div>
+            <div class="personnel-stat"><div class="personnel-stat-label">ON LEAVE IN SELECTED PERIOD</div><div class="personnel-stat-value" id="personnelOnLeave">0</div></div>
+            <div class="personnel-stat"><div class="personnel-stat-label">FULL-DAY LEAVES</div><div class="personnel-stat-value" id="personnelDailyLeaves">0</div></div>
+            <div class="personnel-stat"><div class="personnel-stat-label">HOURLY LEAVES</div><div class="personnel-stat-value" id="personnelHourlyLeaves">0</div></div>
+            <div class="personnel-stat"><div class="personnel-stat-label">SICK LEAVES</div><div class="personnel-stat-value" id="personnelSickLeaves">0</div></div>
+        </div>
+
+        <div class="personnel-panel">
+            <div class="personnel-panel-title">EMPLOYEE DIRECTORY</div>
+            <div class="personnel-table-wrap">
+                <table class="personnel-table">
+                    <thead><tr><th>#</th><th>PERSONNEL CODE</th><th>FULL NAME</th><th>PRODUCTION LINE</th><th>CURRENT STATION</th><th>EMPLOYEE STATUS</th><th>STATION STATUS</th></tr></thead>
+                    <tbody id="personnelEmployeeTable"><tr><td colspan="7" class="personnel-loading">Select this tab to load personnel data.</td></tr></tbody>
+                </table>
+            </div>
+            <div style="display:flex;justify-content:center;margin-top:13px;">
+                <button type="button" class="personnel-refresh" id="personnelShowAllBtn"
+                        onclick="togglePersonnelShowAll()" style="display:none;">
+                    SHOW ALL PERSONNEL
+                </button>
+            </div>
+        </div>
+
+        <div class="personnel-panel">
+            <div class="personnel-panel-title">LEAVE STATISTICS & DETAILS</div>
+            <div class="personnel-table-wrap">
+                <table class="personnel-table">
+                    <thead><tr><th>#</th><th>PERSONNEL CODE</th><th>EMPLOYEE NAME</th><th>LINE</th><th>LEAVE TYPE</th><th>START DATE</th><th>END DATE</th><th>TIME</th><th>DESCRIPTION</th></tr></thead>
+                    <tbody id="personnelLeaveTable"><tr><td colspan="9" class="personnel-loading">Leave details will appear here.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+
+
+<script>
+
+/* =====================================================
+   CLOCK
+===================================================== */
+
+function updateClock() {
+
+    const now = new Date();
+
+    document.getElementById(
+        "clock"
+    ).textContent =
+        now.toLocaleTimeString(
+            "en-US",
+            {
+                hour12: true
+            }
+        );
+
+}
+
+updateClock();
+
+setInterval(
+    updateClock,
+    1000
+);
+
+
+/* =====================================================
+   LOAD DASHBOARD
+===================================================== */
+
+async function loadDashboard() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/dashboard"
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Dashboard API Error"
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        renderLines(data);
+
+        renderSummary(data);
+
+        renderDistribution(data);
+
+        renderChart(data);
+
+        renderLineStatus(data);
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Dashboard Error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   LINE CARDS
+===================================================== */
+
+function renderLines(data) {
+
+    const container =
+        document.getElementById(
+            "lines"
+        );
+
+
+    container.innerHTML =
+        data.map(line => {
+
+
+        const difference =
+            line.difference;
+
+
+        const diffClass =
+            difference >= 0
+                ? "good"
+                : "bad";
+
+
+        const statusClass =
+            line.status === "RUNNING"
+                ? "running"
+                : "stopped";
+
+
+        const statusText =
+            line.status === "RUNNING"
+                ? "● LIVE"
+                : "● STOPPED";
+
+
+        return `
+
+        <div class="line-card">
+
+
+            <!-- LINE HEADER -->
+
+            <div class="line-header">
+
+                <div class="line-title">
+                    LINE ${line.line_id}
+                </div>
+
+                <div
+                    class="status ${statusClass}"
+                >
+                    ${statusText}
+                </div>
+
+            </div>
+
+            <!-- CURRENT PRODUCTS -->
+
+            <div class="product-current">
+
+                <div class="current-product">
+
+                    Assembly:
+
+                    <strong>
+                        ${line.assembly_product || "-"}
+                    </strong>
+
+                </div>
+
+
+                <div class="current-product">
+
+                    Pack:
+
+                    <strong>
+                        ${line.pack_product || "-"}
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <!-- ASSEMBLY / PACK -->
+
+            <div class="main-counts">
+
+
+                <div class="count-card">
+
+                    <div class="count-title">
+                        ASSEMBLY
+                    </div>
+
+                    <div
+                        class="count-value count-assembly"
+                    >
+                        ${line.assembly.actual}
+                    </div>
+
+                </div>
+
+
+                <div class="count-card">
+
+                    <div class="count-title">
+                        PACK
+                    </div>
+
+                    <div
+                        class="count-value count-pack"
+                    >
+                        ${line.pack.actual}
+                    </div>
+
+                </div>
+
+
+            </div>
+
+
+            <!-- ASSEMBLY PRODUCTS -->
+
+            <div class="product-section">
+
+
+                <div class="section-title">
+
+                    🔧 ASSEMBLY
+
+                </div>
+
+
+                <div class="products">
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            AIO
+                        </div>
+
+                        <div class="product-value">
+                            ${line.assembly.aio}
+                        </div>
+
+                    </div>
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            MNT
+                        </div>
+
+                        <div class="product-value">
+                            ${line.assembly.mnt}
+                        </div>
+
+                    </div>
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            CASE
+                        </div>
+
+                        <div class="product-value">
+                            ${line.assembly.case}
+                        </div>
+
+                    </div>
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            NB
+                        </div>
+
+                        <div class="product-value">
+                            ${line.assembly.nb}
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+
+                <div class="line-total assembly">
+
+                    Assembly Total:
+
+                    <strong>
+                        ${line.assembly.actual}
+                    </strong>
+
+                </div>
+
+
+            </div>
+
+
+            <!-- PACK PRODUCTS -->
+
+            <div class="product-section">
+
+
+                <div class="section-title pack">
+
+                    📦 PACK
+
+                </div>
+
+
+                <div class="products">
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            AIO
+                        </div>
+
+                        <div class="product-value">
+                            ${line.pack.aio}
+                        </div>
+
+                    </div>
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            MNT
+                        </div>
+
+                        <div class="product-value">
+                            ${line.pack.mnt}
+                        </div>
+
+                    </div>
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            CASE
+                        </div>
+
+                        <div class="product-value">
+                            ${line.pack.case}
+                        </div>
+
+                    </div>
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            NB
+                        </div>
+
+                        <div class="product-value">
+                            ${line.pack.nb}
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+
+                <div class="line-total pack">
+
+                    Pack Total:
+
+                    <strong>
+                        ${line.pack.actual}
+                    </strong>
+
+                </div>
+
+
+            </div>
+
+            <!-- REPAIR PRODUCTS -->
+
+            <div class="product-section">
+
+
+                <div class="section-title">
+
+                    ⁉️ REPAIR
+
+                </div>
+
+
+                <div class="products">
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            AIO
+                        </div>
+
+                        <div class="product-value">
+                            ${line.repair?.aio || 0}
+                        </div>
+
+                    </div>
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            MNT
+                        </div>
+
+                        <div class="product-value">
+                            ${line.repair?.mnt || 0}
+                        </div>
+
+                    </div>
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            CASE
+                        </div>
+
+                        <div class="product-value">
+                            ${line.repair?.case || 0}
+                        </div>
+
+                    </div>
+
+
+                    <div class="product">
+
+                        <div class="product-name">
+                            NB
+                        </div>
+
+                        <div class="product-value">
+                            ${line.repair?.nb || 0}
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+
+                <div class="line-total assembly">
+
+                    Repair Total: 
+
+                    <strong>
+                        ${line.repair?.actual || 0}
+                    </strong>
+
+                </div>
+
+
+            </div>
+
+
+            <!-- DETAILS -->
+
+            <div class="details">
+
+
+                <div class="detail">
+
+                    <div class="detail-label">
+                        AIO Eq.
+                    </div>
+
+                    <div class="detail-value">
+                        ${line.pack.aio_equivalent}
+                    </div>
+
+                </div>
+
+
+                <div class="detail">
+
+                    <div class="detail-label">
+                        Target
+                    </div>
+
+                    <div class="detail-value">
+                        ${line.expected}
+                    </div>
+
+                </div>
+
+
+                <div class="detail">
+
+                    <div class="detail-label">
+                        Difference
+                    </div>
+
+                    <div
+                        class="
+                            detail-value
+                            ${diffClass}
+                        "
+                    >
+                        ${difference > 0 ? "+" : ""}
+                        ${difference}
+                    </div>
+
+                </div>
+
+
+                <div class="detail">
+
+                    <div class="detail-label">
+                        Switch
+                    </div>
+
+                    <div class="detail-value">
+                        ${line.switch_count}
+                    </div>
+
+                </div>
+
+
+                <div class="detail">
+
+                    <div class="detail-label">
+                        Stop
+                    </div>
+
+                    <div class="detail-value">
+                        ${line.stop_minutes} MIN
+                    </div>
+
+                </div>
+
+                <div class="detail">
+                    <div class="detail-label">Repair</div>
+                    <div class="detail-value">
+                        ${line.repair_count || 0}
+                    </div>
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+        `;
+
+    }).join("");
+
+}
+
+
+/* =====================================================
+   TOTAL SUMMARY
+===================================================== */
+
+function renderSummary(data) {
+
+    let totalAssembly = 0;
+
+    let totalPack = 0;
+
+    let totalAioEquivalent = 0;
+
+    let totalTarget = 0;
+
+
+    data.forEach(line => {
+
+        totalAssembly +=
+            line.assembly.actual;
+
+        totalPack +=
+            line.pack.actual;
+
+        totalAioEquivalent +=
+            line.pack.aio_equivalent;
+
+        totalTarget +=
+            line.expected;
+
+    });
+
+
+    document.getElementById(
+        "summary"
+    ).innerHTML = `
+
+
+        <div class="summary-item">
+
+            <div class="summary-label">
+                Total Assembly
+            </div>
+
+            <div class="summary-value">
+                ${totalAssembly}
+            </div>
+
+        </div>
+
+
+        <div class="summary-item">
+
+            <div class="summary-label">
+                Total Pack
+            </div>
+
+            <div class="summary-value">
+                ${totalPack}
+            </div>
+
+        </div>
+
+
+        <div class="summary-item">
+
+            <div class="summary-label">
+                AIO Equivalent
+            </div>
+
+            <div class="summary-value">
+                ${totalAioEquivalent}
+            </div>
+
+        </div>
+
+
+        <div class="summary-item">
+
+            <div class="summary-label">
+                Total Target
+            </div>
+
+            <div class="summary-value">
+                ${totalTarget}
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
+/* =====================================================
+   PRODUCT DISTRIBUTION
+===================================================== */
+
+function renderDistribution(data) {
+
+    let aio = 0;
+
+    let mnt = 0;
+
+    let caseCount = 0;
+
+    let nb = 0;
+
+
+    data.forEach(line => {
+
+        aio += line.pack.aio;
+
+        mnt += line.pack.mnt;
+
+        caseCount += line.pack.case;
+
+        nb += line.pack.nb;
+
+    });
+
+
+    const total =
+        aio +
+        mnt +
+        caseCount +
+        nb;
+
+
+    document.getElementById(
+        "donutTotal"
+    ).innerHTML = `
+
+        ${total}
+
+        <span>
+            Total Pack
+        </span>
+
+    `;
+
+
+    const values = [
+        {
+            name: "AIO",
+            value: aio,
+            className: "dot-aio"
+        },
+        {
+            name: "MNT",
+            value: mnt,
+            className: "dot-mnt"
+        },
+        {
+            name: "CASE",
+            value: caseCount,
+            className: "dot-case"
+        },
+        {
+            name: "NB",
+            value: nb,
+            className: "dot-nb"
+        }
+    ];
+
+
+    document.getElementById(
+        "legend"
+    ).innerHTML =
+        values.map(item => {
+
+            const percent =
+                total > 0
+                    ? Math.round(
+                        item.value /
+                        total *
+                        100
+                    )
+                    : 0;
+
+
+            return `
+
+                <div class="legend-row">
+
+                    <span
+                        class="
+                            legend-dot
+                            ${item.className}
+                        "
+                    ></span>
+
+                    <span>
+                        ${item.name}
+                    </span>
+
+                    <span>
+                        ${percent}%
+                    </span>
+
+                </div>
+
+            `;
+
+        }).join("");
+
+}
+
+
+/* =====================================================
+   ASSEMBLY VS PACK
+===================================================== */
+
+function renderChart(data) {
+
+    const chart =
+        document.getElementById(
+            "chart"
+        );
+
+
+    const labels =
+        document.getElementById(
+            "chartLabels"
+        );
+
+
+    const max =
+        Math.max(
+            ...data.map(
+                line =>
+                    Math.max(
+                        line.assembly.actual,
+                        line.repair.actual,
+                        line.pack.actual
+                    )
+            ),
+            1
+        );
+
+
+    chart.innerHTML =
+        data.map(line => {
+
+            const assemblyHeight =
+                Math.max(
+                    2,
+                    (
+                        line.assembly.actual /
+                        max
+                    ) * 95
+                );
+
+
+            const packHeight =
+                Math.max(
+                    2,
+                    (
+                        line.pack.actual /
+                        max
+                    ) * 95
+                );
+
+            const repairHeight =
+                Math.max(
+                    2,
+                    (
+                        line.repair.actual /
+                        max
+                    ) * 95
+                );
+
+
+            return `
+
+                <div class="bar-column">
+
+                    <div
+                        class="bar bar-assembly"
+                        style="
+                            height:${assemblyHeight}px
+                        "
+                        title="
+                            Assembly:
+                            ${line.assembly.actual}
+                        "
+                    ></div>
+
+                    <div
+                        class="bar bar-repair"
+                        style="
+                            height:${repairHeight}px
+                        "
+                        title="
+                            repair:
+                            ${line.repair.actual}
+                        "
+                    ></div>
+
+                    <div
+                        class="bar bar-pack"
+                        style="
+                            height:${packHeight}px
+                        "
+                        title="
+                            Pack:
+                            ${line.pack.actual}
+                        "
+                    ></div>
+
+                </div>
+
+            `;
+
+        }).join("");
+
+
+    labels.innerHTML =
+        data.map(line => {
+
+            return `
+                <span>
+                    L${line.line_id}
+                </span>
+            `;
+
+        }).join("");
+
+}
+
+
+/* =====================================================
+   LINE STATUS
+===================================================== */
+
+function renderLineStatus(data) {
+
+    const running =
+        data.filter(
+            line =>
+                line.status === "RUNNING"
+        ).length;
+
+
+    const stopped =
+        data.filter(
+            line =>
+                line.status === "STOPPED"
+        ).length;
+
+
+    const total =
+        data.length;
+
+
+    document.getElementById(
+        "onlineCount"
+    ).innerHTML = `
+
+        ${running}
+
+        <span>
+            Lines Online
+        </span>
+
+    `;
+
+
+    const stoppedColor =
+        stopped > 0
+            ? "#ff4848"
+            : "#ff4848";
+
+
+    document.getElementById(
+        "statusList"
+    ).innerHTML = `
+
+        <div class="status-row">
+
+            <span
+                class="status-dot status-running"
+            ></span>
+
+            Running
+
+            <strong>
+                ${running}
+            </strong>
+
+        </div>
+
+
+        <div class="status-row">
+
+            <span
+                class="status-dot status-stopped"
+            ></span>
+
+            Stopped
+
+            <strong>
+                ${stopped}
+            </strong>
+
+        </div>
+
+
+        
+
+    `;
+
+
+    const percent =
+        total > 0
+            ? running / total * 360
+            : 0;
+
+
+    const donut =
+        document.querySelector(
+            ".status-donut"
+        );
+
+
+    donut.style.background = `
+        conic-gradient(
+            #23e892
+            0deg
+            ${percent}deg,
+
+            #ff4848
+            ${percent}deg
+            360deg
+        )
+    `;
+
+}
+
+
+
+/* =====================================================
+   PERSONNEL MANAGEMENT
+===================================================== */
+let personnelDashboardLoaded = false;
+let personnelDashboardData = { employees: [], leaves: [] };
+let personnelDashboardLoading = false;
+let personnelShowAllEmployees = false;
+let personnelStartGregorian = null;
+let personnelEndGregorian = null;
+
+function switchDashboardTab(tabName) {
+    const production = tabName === "production";
+    document.getElementById("productionTabPanel").classList.toggle("active", production);
+    document.getElementById("personnelTabPanel").classList.toggle("active", !production);
+    document.getElementById("productionTabBtn").classList.toggle("active", production);
+    document.getElementById("personnelTabBtn").classList.toggle("active", !production);
+    if (!production && !personnelDashboardLoaded) initializePersonnelDashboard();
+}
+
+function personnelEscape(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    })[ch]);
+}
+
+function personnelMessage(message, type = "info") {
+    const box = document.getElementById("personnelMessage");
+    box.textContent = message;
+    box.className = "personnel-message " + type;
+}
+
+function convertPersonnelDigitsToEnglish(value) {
+    const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
+    const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
+
+    return String(value ?? "").replace(/[۰-۹٠-٩]/g, digit => {
+        const persianIndex = persianDigits.indexOf(digit);
+        if (persianIndex !== -1) return String(persianIndex);
+
+        const arabicIndex = arabicDigits.indexOf(digit);
+        return arabicIndex !== -1 ? String(arabicIndex) : digit;
+    });
+}
+
+function formatPersonnelDate(value) {
+    if (!value) return "-";
+    const normalized = convertPersonnelDigitsToEnglish(value);
+    const parts = normalized.split("-");
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : personnelEscape(normalized);
+}
+
+function leaveTypeLabel(type) {
+    return ({ DAILY: "FULL DAY", HOURLY: "HOURLY", SICK: "SICK LEAVE" })[String(type || "").toUpperCase()] || type || "-";
+}
+
+function leaveTypeClass(type) {
+    const key = String(type || "").toUpperCase();
+    return key === "HOURLY" ? "hourly" : key === "SICK" ? "sick" : "daily";
+}
+
+function initializePersonnelDatepickers() {
+    if (typeof persianDate === "undefined" || !window.jQuery || !jQuery.fn.persianDatepicker) {
+        personnelMessage("Persian datepicker libraries could not be loaded. Check internet/CDN access.", "error");
+        return false;
+    }
+
+    const today = new persianDate();
+    const todayGregorian = today.toCalendar("gregorian").format("YYYY-MM-DD");
+    const todayJalali = today.format("YYYY/MM/DD");
+
+    const startInput = $("#leaveStartDate");
+    const endInput = $("#leaveEndDate");
+
+    startInput.val(todayJalali).data("gregorian", todayGregorian);
+    endInput.val(todayJalali).data("gregorian", todayGregorian);
+    personnelStartGregorian = todayGregorian;
+    personnelEndGregorian = todayGregorian;
+
+    const pickerOptions = {
+        format: "YYYY/MM/DD",
+        initialValue: true,
+        autoClose: true,
+        calendar: {
+            persian: {
+                locale: "en",
+                leapYearMode: "astronomical"
+            }
+        }
+    };
+
+    startInput.persianDatepicker({
+        ...pickerOptions,
+        onSelect: function(unixDate) {
+            const selected = new persianDate(unixDate);
+            personnelStartGregorian = selected.toCalendar("gregorian").format("YYYY-MM-DD");
+            startInput.data("gregorian", personnelStartGregorian);
+        }
+    });
+
+    endInput.persianDatepicker({
+        ...pickerOptions,
+        onSelect: function(unixDate) {
+            const selected = new persianDate(unixDate);
+            personnelEndGregorian = selected.toCalendar("gregorian").format("YYYY-MM-DD");
+            endInput.data("gregorian", personnelEndGregorian);
+        }
+    });
+
+    return true;
+}
+
+async function initializePersonnelDashboard() {
+    if (!initializePersonnelDatepickers()) return;
+    await loadPersonnelDashboard();
+}
+
+async function loadPersonnelDashboard() {
+    if (personnelDashboardLoading) return;
+    const adminUsername = sessionStorage.getItem("attendance_admin_username");
+    if (!adminUsername) {
+        personnelMessage("Admin session not found. Please sign in again through the main login page.", "error");
+        return;
+    }
+
+    // Persian datepicker may return Persian/Arabic numerals even when Gregorian
+    // calendar formatting is requested. Normalize before validating or calling the API.
+    const rawStartDate = $("#leaveStartDate").data("gregorian") || personnelStartGregorian;
+    const rawEndDate = $("#leaveEndDate").data("gregorian") || personnelEndGregorian;
+    const startDate = convertPersonnelDigitsToEnglish(rawStartDate);
+    const endDate = convertPersonnelDigitsToEnglish(rawEndDate);
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(endDate) ||
+        startDate > endDate) {
+        personnelMessage("بازه تاریخ انتخاب‌شده معتبر نیست. تاریخ‌ها را دوباره انتخاب کنید.", "error");
+        return;
+    }
+
+    personnelDashboardLoading = true;
+    personnelMessage("Loading personnel and leave information...", "info");
+    try {
+        const params = new URLSearchParams({
+            admin_username: adminUsername,
+            start_date: startDate,
+            end_date: endDate
+        });
+        const response = await fetch(`/api/admin/personnel-dashboard?${params.toString()}`);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || result.error || `HTTP ${response.status}`);
+
+        personnelDashboardData = { employees: result.employees || [], leaves: result.leaves || [] };
+        personnelDashboardLoaded = true;
+        personnelMessage(`Data updated. Leave period: ${formatPersonnelDate(startDate)} to ${formatPersonnelDate(endDate)}.`, "info");
+        renderPersonnelDashboard();
+    } catch (error) {
+        console.error("Personnel dashboard error:", error);
+        personnelMessage(error.message || "Could not load personnel data.", "error");
+    } finally {
+        personnelDashboardLoading = false;
+    }
+}
+
+function renderPersonnelDashboard() {
+    personnelShowAllEmployees = false;
+    const selectedLine = document.getElementById("personnelLineFilter").value;
+    const allEmployees = personnelDashboardData.employees || [];
+    const allLeaves = personnelDashboardData.leaves || [];
+    const employees = selectedLine === "all" ? allEmployees : allEmployees.filter(x => Number(x.line_id) === Number(selectedLine));
+    const leaves = selectedLine === "all" ? allLeaves : allLeaves.filter(x => Number(x.line_id) === Number(selectedLine));
+    const active = employees.filter(x => Number(x.is_active) === 1).length;
+    const assigned = employees.filter(x => Number(x.is_active) === 1 && Boolean(x.station_name)).length;
+    const uniqueOnLeave = new Set(leaves.map(x => x.employee_id)).size;
+    const dailyLeaves = leaves.filter(x => String(x.leave_type).toUpperCase() === "DAILY").length;
+    const hourlyLeaves = leaves.filter(x => String(x.leave_type).toUpperCase() === "HOURLY").length;
+    const sickLeaves = leaves.filter(x => String(x.leave_type).toUpperCase() === "SICK").length;
+
+    document.getElementById("personnelDailyLeaves").textContent = dailyLeaves;
+    document.getElementById("personnelHourlyLeaves").textContent = hourlyLeaves;
+    document.getElementById("personnelSickLeaves").textContent = sickLeaves;
+    document.getElementById("personnelTotal").textContent = employees.length;
+    document.getElementById("personnelActive").textContent = active;
+    document.getElementById("personnelInactive").textContent = employees.length - active;
+    document.getElementById("personnelAssigned").textContent = assigned;
+    document.getElementById("personnelOnLeave").textContent = uniqueOnLeave;
+    renderPersonnelEmployees(employees);
+    renderPersonnelLeaves(leaves);
+}
+
+function togglePersonnelShowAll() {
+    personnelShowAllEmployees = !personnelShowAllEmployees;
+    const selectedLine = document.getElementById("personnelLineFilter").value;
+    const allEmployees = personnelDashboardData.employees || [];
+    const filtered = selectedLine === "all"
+        ? allEmployees
+        : allEmployees.filter(x => Number(x.line_id) === Number(selectedLine));
+    renderPersonnelEmployees(filtered);
+}
+
+function renderPersonnelEmployees(employees) {
+    const tbody = document.getElementById("personnelEmployeeTable");
+    const showAllButton = document.getElementById("personnelShowAllBtn");
+    const visibleEmployees = personnelShowAllEmployees ? employees : employees.slice(0, 5);
+
+    if (showAllButton) {
+        if (employees.length > 5) {
+            showAllButton.style.display = "inline-block";
+            showAllButton.textContent = personnelShowAllEmployees
+                ? "SHOW FIRST 5"
+                : `SHOW ALL PERSONNEL (${employees.length})`;
+        } else {
+            showAllButton.style.display = "none";
+            personnelShowAllEmployees = false;
+        }
+    }
+    if (!employees.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="personnel-empty">No personnel found.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = visibleEmployees.map((e, i) => {
+        const active = Number(e.is_active) === 1;
+        const assigned = Boolean(e.station_name);
+        return `<tr>
+            <td>${i + 1}</td><td>${personnelEscape(e.personnel_code || "-")}</td>
+            <td>${personnelEscape(e.full_name || "-")}</td>
+            <td>${personnelEscape(e.line_name || `LINE ${e.line_id}`)}</td>
+            <td>${personnelEscape(e.station_name || "NOT ASSIGNED")}</td>
+            <td><span class="personnel-pill ${active ? "active" : "inactive"}">${active ? "ACTIVE" : "INACTIVE"}</span></td>
+            <td><span class="personnel-pill ${assigned ? "assigned" : "unassigned"}">${assigned ? "ASSIGNED" : "NOT ASSIGNED"}</span></td>
+        </tr>`;
+    }).join("");
+}
+
+function renderPersonnelLeaves(leaves) {
+    const tbody = document.getElementById("personnelLeaveTable");
+    if (!leaves.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="personnel-empty">No leave records in the selected period.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = leaves.map((l, i) => {
+        const time = String(l.leave_type).toUpperCase() === "HOURLY"
+            ? `${personnelEscape(l.start_time || "-")} - ${personnelEscape(l.end_time || "-")}` : "-";
+        return `<tr>
+            <td>${i + 1}</td><td>${personnelEscape(l.personnel_code || "-")}</td>
+            <td>${personnelEscape(l.employee_name || "-")}</td>
+            <td>${personnelEscape(l.line_name || `LINE ${l.line_id}`)}</td>
+            <td><span class="personnel-pill ${leaveTypeClass(l.leave_type)}">${personnelEscape(leaveTypeLabel(l.leave_type))}</span></td>
+            <td>${formatPersonnelDate(l.start_date)}</td><td>${formatPersonnelDate(l.end_date || l.start_date)}</td>
+            <td>${time}</td><td>${personnelEscape(l.notes || "-")}</td>
+        </tr>`;
+    }).join("");
+}
+
+
+/* =====================================================
+   START
+===================================================== */
+
+loadDashboard();
+
+
+setInterval(
+    loadDashboard,
+    5000
+);
+
+</script>
+
+
+</body>
+
+</html>

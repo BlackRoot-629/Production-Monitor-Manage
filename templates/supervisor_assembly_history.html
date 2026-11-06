@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Assembly History</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #0f172a;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.header {
+    padding: 20px 30px;
+    background: #111827;
+    border-bottom: 1px solid #334155;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.header span {
+    color: #94a3b8;
+    font-size: 18px;
+}
+
+.container {
+    padding: 25px;
+}
+
+.back {
+    display: inline-block;
+    margin-bottom: 20px;
+
+    padding: 10px 18px;
+
+    background: #334155;
+    color: white;
+
+    text-decoration: none;
+
+    border-radius: 8px;
+}
+
+.back:hover {
+    background: #475569;
+}
+
+.table-box {
+    background: #111827;
+
+    border-radius: 12px;
+
+    overflow: auto;
+
+    border: 1px solid #334155;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+
+    min-width: 1100px;
+}
+
+thead {
+    background: #1e293b;
+}
+
+th {
+    padding: 15px;
+
+    text-align: center;
+
+    color: #cbd5e1;
+
+    font-size: 14px;
+
+    border-bottom: 1px solid #334155;
+}
+
+td {
+    padding: 13px;
+
+    text-align: center;
+
+    border-bottom: 1px solid #1e293b;
+
+    font-size: 14px;
+}
+
+tbody tr:hover {
+    background: #172033;
+}
+
+.status-ok {
+    color: #22c55e;
+    font-weight: bold;
+}
+
+.status-repair {
+    color: #ef4444;
+    font-weight: bold;
+}
+
+.reason {
+    color: #fbbf24;
+}
+
+.empty {
+    text-align: center;
+    padding: 40px;
+
+    color: #64748b;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<div class="header">
+
+    <h1>
+        Assembly History
+    </h1>
+
+    <span>
+        Line {{ line_id }}
+    </span>
+
+</div>
+
+
+<div class="container">
+
+    <a
+        href="/supervisor/{{ line_id }}"
+        class="back"
+    >
+        ← Back to Supervisor
+    </a>
+
+
+    <div class="table-box">
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>ID</th>
+
+                    <th>Time</th>
+
+                    <th>Serial Number</th>
+
+                    <th>Order Number</th>
+
+                    <th>Product Type</th>
+
+                    <th>Status</th>
+
+                    <th>Repair Reason</th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody id="historyTable">
+
+                <tr>
+
+                    <td
+                        colspan="7"
+                        class="empty"
+                    >
+                        Loading...
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<script>
+
+const lineId = {{ line_id }};
+
+
+async function loadHistory() {
+
+    try {
+
+        const response = await fetch(
+            `/api/supervisor/assembly/history/${lineId}`
+        );
+
+        const data = await response.json();
+
+        const table =
+            document.getElementById("historyTable");
+
+
+        if (!data || data.length === 0) {
+
+            table.innerHTML = `
+                <tr>
+                    <td
+                        colspan="7"
+                        class="empty"
+                    >
+                        No Assembly History
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+
+        table.innerHTML = data.map(item => {
+
+            const statusClass =
+                item.status === "OK"
+                ? "status-ok"
+                : "status-repair";
+
+
+            const statusText =
+                item.status === "OK"
+                ? "OK"
+                : "REPAIR";
+
+
+            return `
+
+                <tr>
+
+                    <td>
+                        ${item.id}
+                    </td>
+
+                    <td>
+                        ${item.time}
+                    </td>
+
+                    <td>
+                        ${item.serial_number}
+                    </td>
+
+                    <td>
+                        ${item.order_number}
+                    </td>
+
+                    <td>
+                        ${item.product_type || "-"}
+                    </td>
+
+                    <td
+                        class="${statusClass}"
+                    >
+                        ${statusText}
+                    </td>
+
+                    <td
+                        class="reason"
+                    >
+                        ${item.repair_reason || "-"}
+                    </td>
+
+                </tr>
+
+            `;
+
+        }).join("");
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        document.getElementById(
+            "historyTable"
+        ).innerHTML = `
+
+            <tr>
+
+                <td
+                    colspan="7"
+                    class="empty"
+                >
+                    Error Loading Data
+                </td>
+
+            </tr>
+
+        `;
+
+    }
+
+}
+
+
+loadHistory();
+
+
+setInterval(
+    loadHistory,
+    5000
+);
+
+</script>
+
+</body>
+
+</html>

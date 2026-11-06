@@ -1,0 +1,1484 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin | Personnel Management</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #0b1220;
+            color: #e5e7eb;
+            padding: 25px;
+        }
+
+        .container {
+            max-width: 1450px;
+            margin: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            color: #60a5fa;
+            font-size: 26px;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            margin-top: 7px;
+            font-size: 13px;
+        }
+
+        .card {
+            background: #172033;
+            border: 1px solid #273449;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 22px;
+        }
+
+        .card-title {
+            font-size: 17px;
+            font-weight: bold;
+            color: #bfdbfe;
+            margin-bottom: 18px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 22px;
+        }
+
+        .stat-box {
+            background: #172033;
+            border: 1px solid #273449;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .blue { color: #60a5fa; }
+        .green { color: #34d399; }
+        .red { color: #f87171; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 18px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        input, select {
+            width: 100%;
+            background: #0f172a;
+            color: white;
+            border: 1px solid #334155;
+            border-radius: 7px;
+            padding: 11px 12px;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: #3b82f6;
+        }
+
+        button {
+            border: none;
+            border-radius: 7px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background: #334155;
+            color: white;
+        }
+
+        .btn-edit {
+            background: #0369a1;
+            color: white;
+            padding: 7px 11px;
+        }
+
+        .btn-status {
+            background: #92400e;
+            color: white;
+            padding: 7px 11px;
+        }
+
+        .btn-activate {
+            background: #047857;
+            color: white;
+            padding: 7px 11px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 18px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 850px;
+        }
+
+        th {
+            text-align: left;
+            color: #93c5fd;
+            background: #111c30;
+            padding: 13px;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #273449;
+            font-size: 13px;
+        }
+
+        tr:hover td {
+            background: #1c2940;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .active {
+            background: #064e3b;
+            color: #6ee7b7;
+        }
+
+        .inactive {
+            background: #7f1d1d;
+            color: #fecaca;
+        }
+
+        .actions {
+            display: flex;
+            gap: 7px;
+        }
+
+        #messageBox {
+            display: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-size: 13px;
+        }
+
+        .message-success {
+            display: block !important;
+            background: #064e3b;
+            color: #a7f3d0;
+            border: 1px solid #047857;
+        }
+
+        .message-error {
+            display: block !important;
+            background: #7f1d1d;
+            color: #fecaca;
+            border: 1px solid #b91c1c;
+        }
+
+        .empty {
+            text-align: center;
+            color: #94a3b8;
+            padding: 30px;
+        }
+
+        .login-panel {
+            max-width: 450px;
+            margin: 70px auto;
+        }
+
+        .login-panel p {
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 18px;
+        }
+
+        .login-panel .field {
+            margin-bottom: 15px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+        }
+
+        .modal-content {
+            background: #172033;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 550px;
+        }
+
+        .modal-content .field {
+            margin-bottom: 15px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        @media(max-width: 750px) {
+            body {
+                padding: 12px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+
+    <!-- MAIN PANEL -->
+    <div id="mainPanel" style="display:block;">
+
+        <div class="header">
+
+            <div>
+                <h1>Personnel Management</h1>
+                <div class="subtitle">
+                    Administrator Dashboard | Production Lines 1-6
+                </div>
+            </div>
+
+            <button
+                class="btn-secondary"
+                onclick="changeAdmin()"
+            >
+                CHANGE ADMIN
+            </button>
+
+        </div>
+
+
+        <div id="messageBox"></div>
+
+
+        <!-- STATISTICS -->
+        <div class="stats">
+
+            <div class="stat-box">
+                <div class="stat-label">Total Employees</div>
+                <div class="stat-value blue" id="totalEmployees">0</div>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-label">Active Employees</div>
+                <div class="stat-value green" id="activeEmployees">0</div>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-label">Inactive Employees</div>
+                <div class="stat-value red" id="inactiveEmployees">0</div>
+            </div>
+
+        </div>
+
+
+        <!-- ADD EMPLOYEE -->
+        <div class="card">
+
+            <div class="card-title">
+                Add New Employee
+            </div>
+
+            <form id="employeeForm">
+
+                <div class="form-grid">
+
+                    <div class="field">
+                        <label>Personnel Code</label>
+                        <input
+                            type="text"
+                            id="personnelCode"
+                            placeholder="Enter personnel code"
+                            required
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label>Full Name</label>
+                        <input
+                            type="text"
+                            id="fullName"
+                            placeholder="Enter full name"
+                            required
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label>Production Line</label>
+                        <select id="employeeLine" required>
+                            <option value="">Select Line</option>
+                            <option value="1">Line 1</option>
+                            <option value="2">Line 2</option>
+                            <option value="3">Line 3</option>
+                            <option value="4">Line 4</option>
+                            <option value="5">Line 5</option>
+                            <option value="6">Line 6</option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                    id="addEmployeeBtn"
+                >
+                    ADD EMPLOYEE
+                </button>
+
+            </form>
+
+        </div>
+
+        <!-- STATION MANAGEMENT -->
+        <div class="card">
+
+            <div class="card-title">
+                Work Station Management
+            </div>
+
+            <form id="stationForm">
+
+                <div class="form-grid">
+
+                    <div class="field">
+                        <label>Production Line</label>
+                        <select id="stationLine" required>
+                            <option value="">Select Line</option>
+                            <option value="1">Line 1</option>
+                            <option value="2">Line 2</option>
+                            <option value="3">Line 3</option>
+                            <option value="4">Line 4</option>
+                            <option value="5">Line 5</option>
+                            <option value="6">Line 6</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label>Station Name</label>
+                        <input
+                            type="text"
+                            id="stationName"
+                            placeholder="Enter station name"
+                            maxlength="150"
+                            required
+                        >
+                    </div>
+
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                    id="addStationBtn"
+                >
+                    ADD STATION
+                </button>
+
+            </form>
+
+            <div class="toolbar" style="margin-top:25px;">
+                <div class="field">
+                    <label>Filter by Line</label>
+                    <select id="stationFilter" onchange="renderStations()">
+                        <option value="">All Lines</option>
+                        <option value="1">Line 1</option>
+                        <option value="2">Line 2</option>
+                        <option value="3">Line 3</option>
+                        <option value="4">Line 4</option>
+                        <option value="5">Line 5</option>
+                        <option value="6">Line 6</option>
+                    </select>
+                </div>
+
+                <button
+                    class="btn-primary"
+                    onclick="loadStations()"
+                >
+                    REFRESH STATIONS
+                </button>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Station Name</th>
+                            <th>Production Line</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="stationTable">
+                        <tr>
+                            <td colspan="5" class="empty">
+                                No stations loaded.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+
+        <!-- EMPLOYEE LIST -->
+        <div class="card">
+
+            <div class="card-title">
+                Employee Directory
+            </div>
+
+            <div class="toolbar">
+
+                <div class="toolbar-left">
+
+                    <div class="field">
+                        <label>Filter by Line</label>
+                        <select id="lineFilter" onchange="loadEmployees()">
+                            <option value="">All Lines</option>
+                            <option value="1">Line 1</option>
+                            <option value="2">Line 2</option>
+                            <option value="3">Line 3</option>
+                            <option value="4">Line 4</option>
+                            <option value="5">Line 5</option>
+                            <option value="6">Line 6</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label>Search Employee</label>
+                        <input
+                            type="text"
+                            id="searchInput"
+                            placeholder="Name or personnel code"
+                            oninput="renderEmployees()"
+                        >
+                    </div>
+
+                </div>
+
+                <button
+                    class="btn-primary"
+                    onclick="loadEmployees()"
+                >
+                    REFRESH
+                </button>
+
+            </div>
+
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Personnel Code</th>
+                            <th>Full Name</th>
+                            <th>Production Line</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="employeeTable">
+
+                        <tr>
+                            <td colspan="6" class="empty">
+                                No data loaded.
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- EDIT MODAL -->
+<div class="modal" id="editModal">
+
+    <div class="modal-content">
+
+        <div class="card-title">
+            Edit Employee
+        </div>
+
+        <input type="hidden" id="editEmployeeId">
+
+        <div class="field">
+            <label>Personnel Code</label>
+            <input type="text" id="editPersonnelCode">
+        </div>
+
+        <div class="field">
+            <label>Full Name</label>
+            <input type="text" id="editFullName">
+        </div>
+
+        <div class="field">
+            <label>Production Line</label>
+            <select id="editLine">
+                <option value="1">Line 1</option>
+                <option value="2">Line 2</option>
+                <option value="3">Line 3</option>
+                <option value="4">Line 4</option>
+                <option value="5">Line 5</option>
+                <option value="6">Line 6</option>
+            </select>
+        </div>
+
+        <div class="modal-actions">
+
+            <button
+                class="btn-secondary"
+                onclick="closeEditModal()"
+            >
+                CANCEL
+            </button>
+
+            <button
+                class="btn-primary"
+                id="updateEmployeeBtn"
+                onclick="updateEmployee()"
+            >
+                SAVE CHANGES
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+// ==========================================
+// CONFIGURATION
+// ==========================================
+
+let adminUsername = null;
+let employees = [];
+let stations = [];
+
+const LINE_NAMES = {
+    1: "Line 1",
+    2: "Line 2",
+    3: "Line 3",
+    4: "Line 4",
+    5: "Line 5",
+    6: "Line 6"
+};
+
+
+// ==========================================
+// HELPERS
+// ==========================================
+
+function escapeHtml(value) {
+
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+    })[char]);
+
+}
+
+
+function showMessage(message, type = "success") {
+
+    const box = document.getElementById("messageBox");
+
+    box.textContent = message;
+
+    box.className = type === "success"
+        ? "message-success"
+        : "message-error";
+
+    clearTimeout(showMessage.timer);
+
+    showMessage.timer = setTimeout(() => {
+        box.className = "";
+    }, 5000);
+
+}
+
+
+async function apiRequest(url, options = {}) {
+
+    const response = await fetch(url, options);
+
+    let result = {};
+
+    try {
+        result = await response.json();
+    } catch {
+        result = {};
+    }
+
+    if (!response.ok) {
+
+        throw new Error(
+            result.detail ||
+            result.error ||
+            `HTTP Error ${response.status}`
+        );
+
+    }
+
+    if (result.error) {
+        throw new Error(result.error);
+    }
+
+    return result;
+
+}
+
+
+function adminQuery() {
+
+    return `admin_username=${encodeURIComponent(adminUsername)}`;
+
+}
+
+
+// ==========================================
+// ADMIN CONNECTION
+// ==========================================
+
+// ==========================================
+// ADMIN SESSION
+// ==========================================
+
+async function initializeAdminPage() {
+
+    adminUsername = sessionStorage.getItem(
+        "attendance_admin_username"
+    );
+
+    if (!adminUsername) {
+
+        document.getElementById("mainPanel").style.display = "none";
+
+        document.body.innerHTML = `
+            <div style="
+                color:white;
+                text-align:center;
+                margin-top:100px;
+                font-family:Arial;
+            ">
+                <h2>Admin Session Not Found</h2>
+                <p>Please login through the main login page.</p>
+                <a href="/" style="color:#60a5fa;">
+                    Back to Login
+                </a>
+            </div>
+        `;
+
+        return;
+    }
+
+    try {
+
+        // بررسی دسترسی ادمین از طریق API
+        await apiRequest(
+            `/api/admin/employees?${adminQuery()}`
+        );
+
+        await loadEmployees();
+        await loadStations();
+
+    } catch (error) {
+
+        console.error(error);
+
+        showMessage(error.message, "error");
+
+    }
+}
+
+
+// ==========================================
+// LOAD EMPLOYEES
+// ==========================================
+
+async function loadEmployees() {
+
+    try {
+
+        const lineId = document.getElementById(
+            "lineFilter"
+        ).value;
+
+        let url =
+            `/api/admin/employees?${adminQuery()}`;
+
+        if (lineId) {
+            url += `&line_id=${encodeURIComponent(lineId)}`;
+        }
+
+        const result = await apiRequest(url);
+
+        employees = result.employees || [];
+
+        renderEmployees();
+        updateStatistics();
+
+    } catch (error) {
+
+        console.error(error);
+
+        showMessage(error.message, "error");
+
+    }
+
+}
+
+// ==========================================
+// LOAD STATIONS
+// ==========================================
+
+async function loadStations() {
+
+    try {
+
+        const result = await apiRequest(
+            `/api/admin/stations?${adminQuery()}`
+        );
+
+        stations = result.stations || [];
+
+        renderStations();
+
+    } catch (error) {
+
+        console.error(error);
+        showMessage(error.message, "error");
+
+    }
+}
+
+
+// ==========================================
+// RENDER STATIONS
+// ==========================================
+
+function renderStations() {
+
+    const tbody = document.getElementById("stationTable");
+
+    const lineFilter = document.getElementById(
+        "stationFilter"
+    ).value;
+
+    const filtered = stations.filter(station => {
+
+        return !lineFilter ||
+            Number(station.line_id) === Number(lineFilter);
+
+    });
+
+    if (!filtered.length) {
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="empty">
+                    No stations found.
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    tbody.innerHTML = filtered.map((station, index) => {
+
+        const active = Number(station.is_active) === 1;
+
+        return `
+            <tr>
+
+                <td>${index + 1}</td>
+
+                <td>${escapeHtml(station.station_name)}</td>
+
+                <td>
+                    ${escapeHtml(
+                        LINE_NAMES[station.line_id] || "Unknown"
+                    )}
+                </td>
+
+                <td>
+                    ${
+                        active
+                        ? `<span class="status active">ACTIVE</span>`
+                        : `<span class="status inactive">INACTIVE</span>`
+                    }
+                </td>
+
+                <td>
+                    <button
+                        class="${active ? "btn-status" : "btn-activate"}"
+                        onclick="toggleStationStatus(
+                            ${station.id},
+                            ${active ? 0 : 1}
+                        )"
+                    >
+                        ${active ? "DEACTIVATE" : "ACTIVATE"}
+                    </button>
+                </td>
+
+            </tr>
+        `;
+
+    }).join("");
+
+}
+
+
+// ==========================================
+// CREATE STATION
+// ==========================================
+
+document.getElementById("stationForm")
+    .addEventListener("submit", async function(event) {
+
+        event.preventDefault();
+
+        const button = document.getElementById("addStationBtn");
+
+        const lineId = Number(
+            document.getElementById("stationLine").value
+        );
+
+        const stationName = document.getElementById(
+            "stationName"
+        ).value.trim();
+
+        if (!lineId || !stationName) {
+
+            showMessage(
+                "Please complete all station fields.",
+                "error"
+            );
+
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = "SAVING...";
+
+        try {
+
+            await apiRequest(
+                `/api/admin/stations`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        admin_username: adminUsername,
+                        station_name: stationName,
+                        line_id: lineId
+                    })
+                }
+            );
+
+            this.reset();
+
+            showMessage("Station saved successfully.");
+
+            await loadStations();
+
+        } catch (error) {
+
+            showMessage(error.message, "error");
+
+        } finally {
+
+            button.disabled = false;
+            button.textContent = "ADD STATION";
+
+        }
+
+    });
+
+
+// ==========================================
+// ACTIVATE / DEACTIVATE STATION
+// ==========================================
+
+async function toggleStationStatus(stationId, isActive) {
+
+    const action = isActive === 1
+        ? "activate"
+        : "deactivate";
+
+    if (!confirm(`Are you sure you want to ${action} this station?`)) {
+        return;
+    }
+
+    try {
+
+        await apiRequest(
+            `/api/admin/stations/${stationId}/status`,
+            {
+                method: "PATCH",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    admin_username: adminUsername,
+                    is_active: isActive
+                })
+            }
+        );
+
+        showMessage("Station status updated successfully.");
+
+        await loadStations();
+
+    } catch (error) {
+
+        showMessage(error.message, "error");
+
+    }
+
+}
+
+
+// ==========================================
+// RENDER EMPLOYEES
+// ==========================================
+
+function renderEmployees() {
+
+    const tbody = document.getElementById(
+        "employeeTable"
+    );
+
+    const search = document.getElementById(
+        "searchInput"
+    ).value.trim().toLowerCase();
+
+    const filtered = employees.filter(employee => {
+
+        const name = String(employee.full_name || "")
+            .toLowerCase();
+
+        const code = String(employee.personnel_code || "")
+            .toLowerCase();
+
+        return name.includes(search) || code.includes(search);
+
+    });
+
+    if (!filtered.length) {
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="empty">
+                    No employees found.
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    tbody.innerHTML = filtered.map((employee, index) => {
+
+        const active = Number(employee.is_active) === 1;
+
+        return `
+            <tr>
+
+                <td>${index + 1}</td>
+
+                <td>
+                    ${escapeHtml(employee.personnel_code)}
+                </td>
+
+                <td>
+                    ${escapeHtml(employee.full_name)}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        LINE_NAMES[employee.line_id] || "Unknown"
+                    )}
+                </td>
+
+                <td>
+                    ${
+                        active
+                        ? `<span class="status active">ACTIVE</span>`
+                        : `<span class="status inactive">INACTIVE</span>`
+                    }
+                </td>
+
+                <td>
+                    <div class="actions">
+
+                        <button
+                            class="btn-edit"
+                            onclick="openEditModal(${employee.id})"
+                        >
+                            EDIT
+                        </button>
+
+                        <button
+                            class="${active ? "btn-status" : "btn-activate"}"
+                            onclick="toggleEmployeeStatus(
+                                ${employee.id},
+                                ${active ? 0 : 1}
+                            )"
+                        >
+                            ${active ? "DEACTIVATE" : "ACTIVATE"}
+                        </button>
+
+                    </div>
+                </td>
+
+            </tr>
+        `;
+
+    }).join("");
+
+}
+
+
+// ==========================================
+// STATISTICS
+// ==========================================
+
+function updateStatistics() {
+
+    const total = employees.length;
+
+    const active = employees.filter(employee =>
+        Number(employee.is_active) === 1
+    ).length;
+
+    const inactive = total - active;
+
+    document.getElementById(
+        "totalEmployees"
+    ).textContent = total;
+
+    document.getElementById(
+        "activeEmployees"
+    ).textContent = active;
+
+    document.getElementById(
+        "inactiveEmployees"
+    ).textContent = inactive;
+
+}
+
+
+// ==========================================
+// CREATE EMPLOYEE
+// ==========================================
+
+document.getElementById("employeeForm")
+    .addEventListener("submit", async function(event) {
+
+        event.preventDefault();
+
+        const button = document.getElementById(
+            "addEmployeeBtn"
+        );
+
+        const personnelCode = document.getElementById(
+            "personnelCode"
+        ).value.trim();
+
+        const fullName = document.getElementById(
+            "fullName"
+        ).value.trim();
+
+        const lineId = Number(
+            document.getElementById("employeeLine").value
+        );
+
+        if (!personnelCode || !fullName || !lineId) {
+
+            showMessage(
+                "Please complete all employee fields.",
+                "error"
+            );
+
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = "SAVING...";
+
+        try {
+
+            await apiRequest(
+                "/api/admin/employees",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        admin_username: adminUsername,
+
+                        personnel_code: personnelCode,
+
+                        full_name: fullName,
+
+                        line_id: lineId
+
+                    })
+                }
+            );
+
+            this.reset();
+
+            showMessage(
+                "Employee created successfully."
+            );
+
+            await loadEmployees();
+
+        } catch (error) {
+
+            showMessage(error.message, "error");
+
+        } finally {
+
+            button.disabled = false;
+            button.textContent = "ADD EMPLOYEE";
+
+        }
+
+    });
+
+
+// ==========================================
+// OPEN EDIT MODAL
+// ==========================================
+
+function openEditModal(employeeId) {
+
+    const employee = employees.find(
+        item => Number(item.id) === Number(employeeId)
+    );
+
+    if (!employee) {
+        showMessage("Employee not found.", "error");
+        return;
+    }
+
+    document.getElementById(
+        "editEmployeeId"
+    ).value = employee.id;
+
+    document.getElementById(
+        "editPersonnelCode"
+    ).value = employee.personnel_code;
+
+    document.getElementById(
+        "editFullName"
+    ).value = employee.full_name;
+
+    document.getElementById(
+        "editLine"
+    ).value = employee.line_id;
+
+    document.getElementById(
+        "editModal"
+    ).style.display = "flex";
+
+}
+
+
+function closeEditModal() {
+
+    document.getElementById(
+        "editModal"
+    ).style.display = "none";
+
+}
+
+
+// ==========================================
+// UPDATE EMPLOYEE
+// ==========================================
+
+async function updateEmployee() {
+
+    const button = document.getElementById(
+        "updateEmployeeBtn"
+    );
+
+    const employeeId = Number(
+        document.getElementById("editEmployeeId").value
+    );
+
+    const personnelCode = document.getElementById(
+        "editPersonnelCode"
+    ).value.trim();
+
+    const fullName = document.getElementById(
+        "editFullName"
+    ).value.trim();
+
+    const lineId = Number(
+        document.getElementById("editLine").value
+    );
+
+    if (!personnelCode || !fullName || !lineId) {
+
+        showMessage(
+            "Please complete all fields.",
+            "error"
+        );
+
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = "SAVING...";
+
+    try {
+
+        await apiRequest(
+            `/api/admin/employees/${employeeId}`,
+            {
+                method: "PUT",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+
+                    admin_username: adminUsername,
+
+                    personnel_code: personnelCode,
+
+                    full_name: fullName,
+
+                    line_id: lineId
+
+                })
+            }
+        );
+
+        closeEditModal();
+
+        showMessage(
+            "Employee updated successfully."
+        );
+
+        await loadEmployees();
+
+    } catch (error) {
+
+        showMessage(error.message, "error");
+
+    } finally {
+
+        button.disabled = false;
+        button.textContent = "SAVE CHANGES";
+
+    }
+
+}
+
+
+// ==========================================
+// ACTIVATE / DEACTIVATE EMPLOYEE
+// ==========================================
+
+async function toggleEmployeeStatus(employeeId, newStatus) {
+
+    const action = newStatus === 1
+        ? "activate"
+        : "deactivate";
+
+    if (!confirm(`Are you sure you want to ${action} this employee?`)) {
+        return;
+    }
+
+    try {
+
+        await apiRequest(
+            `/api/admin/employees/${employeeId}/status`,
+            {
+                method: "PATCH",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+
+                    admin_username: adminUsername,
+
+                    is_active: newStatus
+
+                })
+            }
+        );
+
+        showMessage(
+            `Employee ${action}d successfully.`
+        );
+
+        await loadEmployees();
+
+    } catch (error) {
+
+        showMessage(error.message, "error");
+
+    }
+
+}
+
+
+// ==========================================
+// INITIALIZE
+// ==========================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initializeAdminPage
+);
+
+</script>
+
+</body>
+</html>

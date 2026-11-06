@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>Line Status</title>
+
+<style>
+
+body {
+
+    margin: 0;
+
+    background: #0f172a;
+
+    color: white;
+
+    font-family: Arial, sans-serif;
+
+    min-height: 100vh;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+}
+
+
+.container {
+
+    width: 420px;
+
+    padding: 30px;
+
+    background:
+        linear-gradient(
+            145deg,
+            #172b49,
+            #07101f
+        );
+
+    border-radius: 20px;
+
+    border:
+        1px solid
+        rgba(70,160,255,.3);
+
+    box-shadow:
+        0 20px 60px
+        rgba(0,0,0,.5);
+
+    text-align: center;
+}
+
+
+h1 {
+
+    margin-top: 0;
+
+    font-size: 28px;
+}
+
+
+.current {
+
+    margin: 25px 0;
+
+    padding: 20px;
+
+    border-radius: 12px;
+
+    background:
+        rgba(0,0,0,.25);
+}
+
+
+.status {
+
+    font-size: 25px;
+
+    font-weight: bold;
+
+    margin-top: 10px;
+}
+
+
+.running {
+
+    color: #38f59a;
+}
+
+
+.stopped {
+
+    color: #ff4d4d;
+}
+
+
+button {
+
+    width: 100%;
+
+    padding: 15px;
+
+    margin-top: 12px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    color: white;
+
+    font-size: 16px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+
+.btn-running {
+
+    background: #07945a;
+
+}
+
+
+.btn-stopped {
+
+    background: #c62828;
+
+}
+
+
+.back {
+
+    display: block;
+
+    margin-top: 20px;
+
+    color: #8da8c9;
+
+    text-decoration: none;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="container">
+
+    <h1>
+        Line {{ line_id }} Status
+    </h1>
+
+
+    <div class="current">
+
+        Current Status:
+
+        <div
+            id="status"
+            class="status"
+        >
+            Loading...
+        </div>
+
+    </div>
+
+
+    <button
+        class="btn-running"
+        onclick="changeStatus('RUNNING')"
+    >
+        🟢 SET RUNNING
+    </button>
+
+
+    <button
+        class="btn-stopped"
+        onclick="changeStatus('STOPPED')"
+    >
+        🔴 SET STOPPED
+    </button>
+
+
+    <a
+        href="/supervisor/{{ line_id }}"
+        class="back"
+    >
+        ← Back to Supervisor
+    </a>
+
+</div>
+
+
+<script>
+
+const lineId = {{ line_id }};
+
+
+async function loadStatus() {
+
+    const response =
+        await fetch("/api/line-status");
+
+    const data =
+        await response.json();
+
+    const line =
+        data.find(
+            item =>
+                item.line_id === lineId
+        );
+
+
+    if (!line) {
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "UNKNOWN";
+
+        return;
+    }
+
+
+    const status =
+        document.getElementById(
+            "status"
+        );
+
+
+    status.textContent =
+        line.status;
+
+
+    status.className =
+        "status " +
+        (
+            line.status === "RUNNING"
+                ? "running"
+                : "stopped"
+        );
+
+}
+
+
+async function changeStatus(newStatus) {
+
+    const response =
+        await fetch(
+            `/api/supervisor/line-status/${lineId}`,
+            {
+                method: "PUT",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    status: newStatus
+                })
+            }
+        );
+
+
+    const result =
+        await response.json();
+
+
+    if (result.error) {
+
+        alert(result.error);
+
+        return;
+    }
+
+
+    loadStatus();
+
+}
+
+
+loadStatus();
+
+
+setInterval(
+    loadStatus,
+    5000
+);
+
+</script>
+
+
+</body>
+
+</html>

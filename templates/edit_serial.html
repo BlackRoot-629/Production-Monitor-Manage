@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Edit Serial</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+
+body{
+
+    background:#0f172a;
+
+    color:white;
+
+    font-family:Tahoma;
+
+    margin:20px;
+
+}
+
+.container{
+
+    max-width:700px;
+
+    margin:auto;
+
+}
+
+h1{
+
+    text-align:center;
+
+    font-size:40px;
+
+}
+
+.card{
+
+    background:#1e293b;
+
+    border-radius:20px;
+
+    padding:30px;
+
+}
+
+.info{
+
+    font-size:22px;
+
+    margin-bottom:20px;
+
+}
+
+label{
+
+    display:block;
+
+    margin-top:20px;
+
+    margin-bottom:10px;
+
+    font-size:22px;
+
+}
+
+input{
+
+    width:100%;
+
+    box-sizing:border-box;
+
+    padding:15px;
+
+    font-size:22px;
+
+    border:none;
+
+    border-radius:10px;
+
+}
+
+button{
+
+    width:100%;
+
+    padding:15px;
+
+    border:none;
+
+    border-radius:10px;
+
+    font-size:22px;
+
+    margin-top:20px;
+
+    cursor:pointer;
+
+}
+
+.save{
+
+    background:#22c55e;
+
+    color:white;
+
+}
+
+.back{
+
+    background:#334155;
+
+    color:white;
+
+}
+
+#message{
+
+    text-align:center;
+
+    margin-top:20px;
+
+    font-size:22px;
+
+    font-weight:bold;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>
+
+Edit Serial
+
+</h1>
+
+<div class="card">
+
+<div class="info">
+
+<b>Date :</b>
+
+<span id="date"></span>
+
+</div>
+
+<div class="info">
+
+<b>Line :</b>
+
+<span id="line"></span>
+
+</div>
+
+<label>
+
+Order Number
+
+</label>
+
+<input
+id="orderNumber"
+>
+
+<label>
+
+Serial Number
+
+</label>
+
+<input
+id="serialNumber"
+>
+
+<button
+class="save"
+onclick="save()"
+>
+
+💾 Save Changes
+
+</button>
+
+<button
+class="back"
+onclick="history.back()"
+>
+
+⬅ Back
+
+</button>
+
+<div id="message">
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const serialId={{ serial_id }};
+
+async function load(){
+
+    const response=
+
+    await fetch(
+
+        "/api/serial/"+serialId
+
+    );
+
+    const data=
+
+    await response.json();
+
+    document.getElementById(
+        "date"
+    ).innerText=data.time;
+
+    document.getElementById(
+        "line"
+    ).innerText=
+
+        "Line "+data.line_id;
+
+    document.getElementById(
+        "orderNumber"
+    ).value=
+
+        data.order_number;
+
+    document.getElementById(
+        "serialNumber"
+    ).value=
+
+        data.serial_number;
+
+}
+
+async function save(){
+
+    const response=
+
+    await fetch(
+
+        "/api/serial/"+serialId,
+
+        {
+
+            method:"PUT",
+
+            headers:{
+
+                "Content-Type":
+                "application/json"
+
+            },
+
+            body:JSON.stringify({
+
+                order_number:
+
+                document.getElementById(
+                    "orderNumber"
+                ).value,
+
+                serial_number:
+
+                document.getElementById(
+                    "serialNumber"
+                ).value
+
+            })
+
+        }
+
+    );
+
+    const result=
+
+    await response.json();
+
+    document.getElementById(
+        "message"
+    ).innerText=
+
+        result.message||
+
+        result.error;
+
+}
+
+load();
+
+</script>
+
+</body>
+
+</html>

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Serial History</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+
+body{
+
+    background:#0f172a;
+
+    color:white;
+
+    font-family:Tahoma;
+
+    margin:20px;
+
+}
+
+.container{
+
+    max-width:1200px;
+
+    margin:auto;
+
+}
+
+h1{
+
+    text-align:center;
+
+    font-size:40px;
+
+    margin-bottom:25px;
+
+}
+
+.card{
+
+    background:#1e293b;
+
+    border-radius:20px;
+
+    padding:20px;
+
+}
+
+table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+th{
+
+    background:#334155;
+
+}
+
+th,
+td{
+
+    padding:14px;
+
+    text-align:center;
+
+    border-bottom:1px solid #475569;
+
+}
+
+button{
+
+    padding:8px 18px;
+
+    border:none;
+
+    border-radius:8px;
+
+    cursor:pointer;
+
+    font-size:16px;
+
+}
+
+.edit{
+
+    background:#3b82f6;
+
+    color:white;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>
+
+Serial History
+
+</h1>
+<div
+style="
+display:flex;
+gap:10px;
+margin-bottom:20px;
+">
+
+<input
+
+id="search"
+
+placeholder="Search Order or Serial"
+
+style="
+flex:1;
+padding:12px;
+font-size:18px;
+border:none;
+border-radius:10px;
+">
+
+<button
+
+onclick="loadHistory()"
+
+style="
+width:150px;
+background:#3b82f6;
+color:white;
+">
+
+Search
+
+</button>
+
+</div>
+<div class="card">
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>
+
+Time
+
+</th>
+
+<th>
+
+Order Number
+
+</th>
+
+<th>
+
+Serial Number
+
+</th>
+
+<th>
+
+Action
+
+</th>
+
+</tr>
+
+</thead>
+
+<tbody id="history">
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+<script>
+
+async function loadHistory(){
+const keyword =
+
+document.getElementById(
+"search"
+).value;
+    const response =
+await fetch(
+
+"/api/serial-history/{{ line_id }}?search="
++
+
+encodeURIComponent(keyword)
+
+);
+
+    const data =
+        await response.json();
+
+    let html="";
+
+    data.forEach(item=>{
+
+        html+=`
+
+<tr>
+
+<td>${item.time}</td>
+
+<td>${item.order}</td>
+
+<td>${item.serial}</td>
+
+<td>
+
+<button
+class="edit"
+onclick="editSerial(${item.id})">
+
+Edit
+
+</button>
+
+</td>
+
+</tr>
+
+`;
+
+    });
+
+    document.getElementById(
+        "history"
+    ).innerHTML=html;
+
+}
+
+function editSerial(id){
+
+    location.href=
+        "/edit-serial/"+id;
+
+}
+
+loadHistory();
+
+</script>
+
+</body>
+
+</html>

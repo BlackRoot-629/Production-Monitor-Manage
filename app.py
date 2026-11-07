@@ -7,7 +7,7 @@ from database import SessionLocal
 from models import Serial, OrderCode
 from schemas import SerialCreate
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError
 
 from schemas import StopCreate
@@ -16,7 +16,7 @@ from models import SwitchLog
 from services import calculate_expected_count, validate_repair_transition
 from models import User
 from schemas import LoginRequest
-from schemas import OrderCodeCreate
+from schemas import OrderCodeCreate, OrderCodeUpdate
 from schemas import UserCreate, UserUpdate
 from schemas import SerialUpdate
 from schemas import AssemblyScanCreate
@@ -83,6 +83,15 @@ from models import (
 from fastapi.templating import Jinja2Templates
 
 Base.metadata.create_all(bind=engine)
+
+# create_all creates missing tables but does not add columns to existing ones.
+# Keep this additive change idempotent so existing installations can start
+# using the order-code target without failing until a manual schema update.
+with engine.begin() as connection:
+    connection.execute(text(
+        "ALTER TABLE order_codes "
+        "ADD COLUMN IF NOT EXISTS target_quantity INTEGER NOT NULL DEFAULT 0"
+    ))
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -566,6 +575,8 @@ def login(data: LoginRequest):
 
         return {
 
+            "id": user.id,
+
             "username":
             user.username,
 
@@ -617,6 +628,12 @@ def add_ordercode(data: OrderCodeCreate):
                 detail="Product type must contain 1 to 20 characters"
             )
 
+        if data.target_quantity < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Target quantity must be at least 1"
+            )
+
         existing = db.query(
             OrderCode
         ).filter(
@@ -635,7 +652,9 @@ def add_ordercode(data: OrderCodeCreate):
 
             order_code=order_code,
 
-            product_type=product_type
+            product_type=product_type,
+
+            target_quantity=data.target_quantity
 
         )
 
@@ -652,8 +671,34 @@ def add_ordercode(data: OrderCodeCreate):
         db.rollback()
         raise
 
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Could not save order code: {exc}") from exc
+
     finally:
 
+        db.close()
+
+
+@app.put("/api/ordercode/{order_code}")
+def update_ordercode(order_code: str, data: OrderCodeUpdate):
+    db = SessionLocal()
+    try:
+        if data.target_quantity < 1:
+            raise HTTPException(status_code=400, detail="Target quantity must be at least 1")
+        item = db.query(OrderCode).filter(OrderCode.order_code == order_code.strip()).first()
+        if item is None:
+            raise HTTPException(status_code=404, detail="Order code not found")
+        item.target_quantity = data.target_quantity
+        db.commit()
+        return {"success": True, "order_code": item.order_code, "target_quantity": item.target_quantity}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not update order code target") from exc
+    finally:
         db.close()
 
 @app.get("/supervisor/{line_id}")
@@ -806,6 +851,21 @@ def admin_page(request: Request):
     )
 
 
+@app.get("/admin/order-code-progress")
+def admin_order_code_progress_page(request: Request, admin_username: str = Query(...)):
+    db = SessionLocal()
+    try:
+        verify_admin(db, admin_username)
+        return templates.TemplateResponse(
+            request=request,
+            name="order_code_progress.html",
+            context={"request": request, "admin_username": admin_username},
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+        )
+    finally:
+        db.close()
+
+
 @app.get("/api/users")
 def get_users():
 
@@ -852,7 +912,8 @@ def create_user(
 
         username = data.username.strip()
         allowed_roles = {
-            "admin", "dashboard", "operator", "supervisor", "ordercode", "technician", "qc"
+            "admin", "dashboard", "operator", "supervisor", "support_supervisor",
+            "ordercode", "technician", "qc"
         }
         if not username or not data.password:
             raise HTTPException(
@@ -902,7 +963,7 @@ def create_user(
 
             role=data.role,
 
-            line_id=data.line_id
+            line_id=data.line_id if data.role in {"operator", "supervisor"} else None
 
         )
 
@@ -994,7 +1055,8 @@ def update_user(
     try:
 
         allowed_roles = {
-            "admin", "dashboard", "operator", "supervisor", "ordercode", "technician", "qc"
+            "admin", "dashboard", "operator", "supervisor", "support_supervisor",
+            "ordercode", "technician", "qc"
         }
         if data.role not in allowed_roles:
             raise HTTPException(
@@ -1056,7 +1118,7 @@ def update_user(
 
         user.role = data.role
 
-        user.line_id = data.line_id
+        user.line_id = data.line_id if data.role in {"operator", "supervisor"} else None
 
         db.commit()
 
@@ -1137,6 +1199,20 @@ def _format_export_solar_datetime(value):
     if not value:
         return "Not found"
     return jdatetime.datetime.fromgregorian(datetime=value).strftime("%Y/%m/%d %H:%M:%S")
+
+
+def _format_export_solar_date(value):
+    if not value:
+        return "Not found"
+    return jdatetime.date.fromgregorian(date=value).strftime("%Y/%m/%d")
+
+
+def _format_export_solar_weekday(value):
+    if not value:
+        return "Not found"
+    jalali_date = jdatetime.date.fromgregorian(date=value)
+    weekdays = ("شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه")
+    return weekdays[jalali_date.weekday()]
 
 
 def _stream_workbook(workbook, filename):
@@ -1241,6 +1317,79 @@ def export_repair_dashboard(admin_username: str):
     _style_export_sheet(sheet, {"A": 24, "B": 22, "C": 25, "D": 25, "E": 25, "F": 25, "G": 28})
     return _stream_workbook(workbook, "Repair_Serial_Timeline.xlsx")
 
+
+@app.get("/api/export/personnel-leaves")
+def export_personnel_leaves(admin_username: str):
+    db = SessionLocal()
+    try:
+        verify_admin(db, admin_username)
+        records = db.query(
+            LeaveRecord, Employee, Line, User
+        ).join(
+            Employee, Employee.id == LeaveRecord.employee_id
+        ).outerjoin(
+            Line, Line.id == Employee.line_id
+        ).outerjoin(
+            User, User.id == LeaveRecord.created_by
+        ).order_by(
+            LeaveRecord.start_date.desc(), LeaveRecord.id.desc()
+        ).all()
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Personnel Leaves"
+        sheet.append([
+            "Employee Name", "Personnel Code", "Department / Line", "Position",
+            "Leave Type", "Start Date (Jalali)", "Start Weekday",
+            "End Date (Jalali)", "End Weekday",
+            "Start Time", "End Time", "Notes", "Registered By", "Created At (Jalali)"
+        ])
+
+        leave_labels = {
+            "DAILY": "Daily Leave",
+            "HOURLY": "Hourly Leave",
+            "SICK": "Sick Leave"
+        }
+        unit_labels = {
+            "ADMINISTRATION": "Administration",
+            "SUPPORT": "Support"
+        }
+        position_labels = {
+            "SUPERVISOR": "Supervisor",
+            "LOADING": "Loading",
+            "STAFF": "Staff"
+        }
+
+        for leave, employee, line, creator in records:
+            department = (
+                line.name if line else unit_labels.get(employee.unit, "Not assigned")
+            )
+            sheet.append([
+                employee.full_name,
+                employee.personnel_code,
+                department,
+                position_labels.get(employee.position, employee.position or "Not found"),
+                leave_labels.get(leave.leave_type, leave.leave_type),
+                _format_export_solar_date(leave.start_date),
+                _format_export_solar_weekday(leave.start_date),
+                _format_export_solar_date(leave.end_date),
+                _format_export_solar_weekday(leave.end_date),
+                leave.start_time.strftime("%H:%M") if leave.start_time else "—",
+                leave.end_time.strftime("%H:%M") if leave.end_time else "—",
+                leave.notes or "—",
+                creator.username if creator else "Not found",
+                _format_export_solar_datetime(leave.created_at)
+            ])
+
+        _style_export_sheet(sheet, {
+            "A": 26, "B": 20, "C": 24, "D": 18, "E": 18, "F": 20,
+            "G": 18, "H": 20, "I": 18, "J": 14, "K": 14, "L": 42,
+            "M": 22, "N": 28
+        })
+        return _stream_workbook(workbook, "Personnel_Leave_Report.xlsx")
+    finally:
+        db.close()
+
 @app.get("/api/ordercodes")
 def get_ordercodes():
 
@@ -1254,7 +1403,7 @@ def get_ordercodes():
 
             OrderCode.id.desc()
 
-        ).limit(20).all()
+        ).all()
 
         return [
 
@@ -1264,7 +1413,9 @@ def get_ordercodes():
                 item.order_code,
 
                 "product_type":
-                item.product_type
+                item.product_type,
+
+                "target_quantity": item.target_quantity or 0
 
             }
 
@@ -1274,6 +1425,39 @@ def get_ordercodes():
 
     finally:
 
+        db.close()
+
+
+@app.get("/api/admin/order-code-progress")
+def admin_order_code_progress(admin_username: str = Query(...)):
+    db = SessionLocal()
+    try:
+        verify_admin(db, admin_username)
+        rows = db.query(
+            OrderCode.order_code,
+            OrderCode.product_type,
+            OrderCode.target_quantity,
+            func.count(Serial.id)
+        ).outerjoin(
+            Serial, Serial.order_code == OrderCode.order_code
+        ).group_by(
+            OrderCode.id,
+            OrderCode.order_code,
+            OrderCode.product_type,
+            OrderCode.target_quantity
+        ).order_by(
+            OrderCode.order_code
+        ).all()
+
+        return [{
+            "order_code": order_code,
+            "product_type": product_type,
+            "target_quantity": target_quantity or 0,
+            "packed_quantity": packed_quantity,
+            "remaining_quantity": max((target_quantity or 0) - packed_quantity, 0),
+            "complete": bool(target_quantity and packed_quantity >= target_quantity)
+        } for order_code, product_type, target_quantity, packed_quantity in rows]
+    finally:
         db.close()
 
 
@@ -1535,9 +1719,7 @@ def assembly_scan(data: AssemblyScanCreate):
 
         serial_number = data.serial_number.strip()
 
-        # -----------------------------
-        # Check Serial Format
-        # -----------------------------
+
 
         parts = serial_number.split("-")
 
@@ -1558,9 +1740,7 @@ def assembly_scan(data: AssemblyScanCreate):
                 detail="Production line not found"
             )
 
-        # -----------------------------
-        # Extract Order Number
-        # -----------------------------
+
 
         order_number = parts[1]
 
@@ -1569,9 +1749,7 @@ def assembly_scan(data: AssemblyScanCreate):
                 "error": "Invalid Order Number"
             }
 
-        # -----------------------------
-        # Find Product Type
-        # -----------------------------
+
 
         order_item = db.query(OrderCode).filter(
             OrderCode.order_code == order_number
@@ -1584,9 +1762,7 @@ def assembly_scan(data: AssemblyScanCreate):
 
         product_type = order_item.product_type
 
-        # -----------------------------
-        # Find Existing Assembly
-        # -----------------------------
+
 
         assembly = db.query(Assembly).filter(
             Assembly.serial_number == serial_number
@@ -1597,9 +1773,7 @@ def assembly_scan(data: AssemblyScanCreate):
                 detail=f"This serial belongs to assembly line {assembly.origin_line_id}"
             )
 
-        # -----------------------------
-        # New Serial
-        # -----------------------------
+
 
         if not assembly:
 
@@ -1611,9 +1785,6 @@ def assembly_scan(data: AssemblyScanCreate):
                 "current_status": None
             }
 
-        # -----------------------------
-        # Existing Serial
-        # -----------------------------
 
         return {
             "message": "Serial Found",
@@ -2105,6 +2276,32 @@ def repair_monitor_overview():
         db.close()
 
 
+@app.get("/api/assembly/exit-queue/{line_id}")
+def assembly_exit_queue_count(line_id: int):
+    """Return live exit-queue counts for the requested line and all lines."""
+    db = SessionLocal()
+    try:
+        if not db.query(Line.id).filter(Line.id == line_id).first():
+            raise HTTPException(status_code=404, detail="Production line not found")
+
+        per_line = db.query(
+            Assembly.origin_line_id,
+            func.count(Assembly.id)
+        ).filter(
+            Assembly.repair_stage == "EXIT_QUEUE"
+        ).group_by(Assembly.origin_line_id).all()
+        counts = {origin_line_id: count for origin_line_id, count in per_line}
+        return {
+            "line_id": line_id,
+            "line_name": db.query(Line.name).filter(Line.id == line_id).scalar() or f"Line {line_id}",
+            "line_count": counts.get(line_id, 0),
+            "total_count": sum(counts.values()),
+            "updated_at": datetime.now().isoformat()
+        }
+    finally:
+        db.close()
+
+
 @app.get("/api/repair/monitor/stream")
 def repair_monitor_stream():
     def events():
@@ -2262,16 +2459,12 @@ def get_assembly_monitor(line_id: int):
                 detail="Production line not found"
             )
 
-        # -----------------------------
-        # STOP
-        # -----------------------------
+
 
         stop_minutes = _line_stop_minutes_for_today(db, line_id)
 
 
-        # -----------------------------
-        # SWITCH
-        # -----------------------------
+
 
         switch_count = db.query(
             func.count()
@@ -2281,10 +2474,7 @@ def get_assembly_monitor(line_id: int):
         ).scalar()
 
 
-        # -----------------------------
-        # EXPECTED
-        # Same as Packing
-        # -----------------------------
+
 
         expected_count = calculate_expected_count(
             stop_minutes,
@@ -2292,9 +2482,7 @@ def get_assembly_monitor(line_id: int):
         )
 
 
-        # -----------------------------
-        # PRODUCT TYPES
-        # -----------------------------
+
 
         aio = db.query(
             func.count()
@@ -2332,9 +2520,7 @@ def get_assembly_monitor(line_id: int):
         ).scalar()
 
 
-        # -----------------------------
-        # STATUS
-        # -----------------------------
+
 
         ok_count = db.query(
             func.count()
@@ -2353,9 +2539,7 @@ def get_assembly_monitor(line_id: int):
             Assembly.created_at >= today
         ).scalar()
 
-        # -----------------------------
-        # ACTUAL
-        # -----------------------------
+
 
         actual_count = ok_count + repair_count
 
@@ -2370,9 +2554,7 @@ def get_assembly_monitor(line_id: int):
         aio_equivalent = int(aio_equivalent)
 
 
-        # -----------------------------
-        # DIFFERENCE
-        # -----------------------------
+
 
         difference = aio_equivalent - expected_count
 
@@ -2614,9 +2796,7 @@ def update_supervisor_pack(
                 "error": "Serial Number Required"
             }
 
-        # --------------------------------
-        # Duplicate Serial Check
-        # --------------------------------
+
 
         duplicate = db.query(Serial).filter(
             Serial.serial_number == serial_number,
@@ -2628,9 +2808,7 @@ def update_supervisor_pack(
                 "error": "Serial Already Exists"
             }
 
-        # --------------------------------
-        # Extract Order Code
-        # --------------------------------
+
 
         order_code = None
 
@@ -2646,9 +2824,7 @@ def update_supervisor_pack(
             order_code = order_number
 
 
-        # --------------------------------
-        # Find Order Code
-        # --------------------------------
+
 
         order_item = db.query(OrderCode).filter(
             OrderCode.order_code == order_code
@@ -2662,16 +2838,12 @@ def update_supervisor_pack(
             }
 
 
-        # --------------------------------
-        # Product Type
-        # --------------------------------
+
 
         product_type = order_item.product_type
 
 
-        # --------------------------------
-        # Update Serial
-        # --------------------------------
+
 
         item.order_number = order_number
 
@@ -2781,9 +2953,7 @@ def update_supervisor_assembly(
                 "error": "Serial Number Required"
             }
 
-        # -----------------------------
-        # Validate Serial Format
-        # -----------------------------
+
 
         parts = serial_number.split("-")
 
@@ -2799,9 +2969,6 @@ def update_supervisor_assembly(
                 "error": "Invalid Order Number"
             }
 
-        # -----------------------------
-        # Check Duplicate Serial
-        # -----------------------------
 
         duplicate = db.query(Assembly).filter(
             Assembly.serial_number == serial_number,
@@ -2813,9 +2980,7 @@ def update_supervisor_assembly(
                 "error": "Serial Already Exists"
             }
 
-        # -----------------------------
-        # Find Order Code
-        # -----------------------------
+
 
         order_item = db.query(OrderCode).filter(
             OrderCode.order_code == order_number
@@ -2828,9 +2993,7 @@ def update_supervisor_assembly(
 
         product_type = order_item.product_type
 
-        # -----------------------------
-        # Validate Status
-        # -----------------------------
+
 
         status = data.status.strip().upper()
 
@@ -2854,9 +3017,7 @@ def update_supervisor_assembly(
 
             repair_reason = None
 
-        # -----------------------------
-        # Update Assembly
-        # -----------------------------
+
 
         item.serial_number = serial_number
         item.order_number = order_number
@@ -2946,15 +3107,10 @@ def get_dashboard():
 
         result = []
 
-        # ==========================================
-        # 6 PRODUCTION LINES
-        # ==========================================
 
         for line_id in range(1, 7):
 
-            # ======================================
-            # LINE STATUS
-            # ======================================
+
 
             line = db.query(Line).filter(
                 Line.id == line_id
@@ -2978,16 +3134,12 @@ def get_dashboard():
             )
 
 
-            # ======================================
-            # STOP
-            # ======================================
+
 
             stop_minutes = _line_stop_minutes_for_today(db, line_id)
 
 
-            # ======================================
-            # SWITCH
-            # ======================================
+
 
             switch_count = db.query(
                 func.count()
@@ -3001,9 +3153,7 @@ def get_dashboard():
             )
 
 
-            # ======================================
-            # EXPECTED
-            # ======================================
+
 
             expected_count = calculate_expected_count(
                 stop_minutes,
@@ -3011,9 +3161,7 @@ def get_dashboard():
             )
 
 
-            # ======================================
-            # PACK
-            # ======================================
+
 
             pack_aio = db.query(
                 func.count()
@@ -3062,9 +3210,7 @@ def get_dashboard():
             )
 
 
-            # ======================================
-            # ASSEMBLY
-            # ======================================
+
 
             assembly_aio = db.query(
                 func.count()
@@ -3111,9 +3257,7 @@ def get_dashboard():
                 (assembly_case * 0.80) +
                 assembly_nb
             )
-            # ======================================
-            # REPAIR BY PRODUCT
-            # ======================================
+
 
             repair_aio = db.query(
                 func.count()
@@ -3154,9 +3298,7 @@ def get_dashboard():
                 repair_nb
             )
 
-            # ======================================
-            # REPAIR
-            # ======================================
+
 
             repair_count = db.query(
                 func.count()
@@ -3170,9 +3312,6 @@ def get_dashboard():
             )
 
 
-            # ======================================
-            # DIFFERENCE
-            # ======================================
 
             difference = (
                 pack_aio_equivalent -
@@ -3180,9 +3319,6 @@ def get_dashboard():
             )
 
 
-            # ======================================
-            # RESULT
-            # ======================================
 
             result.append({
 
@@ -3198,9 +3334,6 @@ def get_dashboard():
 
                 "lunch_time": line.lunch_time.strftime("%H:%M") if line and line.lunch_time else None,
 
-                # ------------------------------
-                # PACK
-                # ------------------------------
 
                 "pack": {
 
@@ -3219,9 +3352,6 @@ def get_dashboard():
                 },
 
 
-                # ------------------------------
-                # ASSEMBLY
-                # ------------------------------
 
                 "assembly": {
 
@@ -3238,9 +3368,6 @@ def get_dashboard():
                     "aio_equivalent":
                         assembly_aio_equivalent
                 },
-                # ------------------------------
-                # REPAIR
-                # ------------------------------
 
                 "repair": {
 
@@ -3256,9 +3383,6 @@ def get_dashboard():
                 },
 
 
-                # ------------------------------
-                # PRODUCTION
-                # ------------------------------
 
                 "expected":
                     expected_count,
@@ -3267,9 +3391,6 @@ def get_dashboard():
                     difference,
 
 
-                # ------------------------------
-                # STOP / SWITCH
-                # ------------------------------
 
                 "stop_minutes":
                     stop_minutes,
@@ -3688,7 +3809,6 @@ def assign_station(data: AttendanceAssign):
     db = SessionLocal()
 
     try:
-        # 1. بررسی وجود کاربر درخواست‌دهنده
         user = db.query(User).filter(
             User.id == data.user_id
         ).first()
@@ -3699,14 +3819,12 @@ def assign_station(data: AttendanceAssign):
                 detail="User not found"
             )
 
-        # 2. فقط سرپرست مجاز است
         if user.role != "supervisor":
             raise HTTPException(
                 status_code=403,
                 detail="Only supervisors can assign stations"
             )
 
-        # 3. بررسی وجود کارمند فعال
         employee = db.query(Employee).filter(
             Employee.id == data.employee_id,
             Employee.is_active == 1
@@ -3718,14 +3836,12 @@ def assign_station(data: AttendanceAssign):
                 detail="Employee not found or inactive"
             )
 
-        # 4. سرپرست فقط به کارکنان خط خودش دسترسی دارد
         if user.line_id != employee.line_id:
             raise HTTPException(
                 status_code=403,
                 detail="You cannot manage employees of another line"
             )
 
-        # 5. بررسی مرخصی روزانه یا استعلاجی
         full_day_leave = db.query(LeaveRecord).filter(
             LeaveRecord.employee_id == data.employee_id,
             LeaveRecord.start_date <= data.attendance_date,
@@ -3739,7 +3855,6 @@ def assign_station(data: AttendanceAssign):
                 detail="Employee is on leave and cannot be assigned to a station"
             )
 
-        # 6. بررسی ایستگاه فعال
         station = db.query(Station).filter(
             Station.id == data.station_id,
             Station.is_active == 1
@@ -3751,14 +3866,12 @@ def assign_station(data: AttendanceAssign):
                 detail="Station not found or inactive"
             )
 
-        # 7. ایستگاه باید متعلق به خط کارمند باشد
         if station.line_id != employee.line_id:
             raise HTTPException(
                 status_code=400,
                 detail="Station does not belong to employee line"
             )
 
-        # 8. بررسی رکورد حضور روزانه
         attendance = db.query(DailyAttendance).filter(
             DailyAttendance.employee_id == data.employee_id,
             DailyAttendance.attendance_date == data.attendance_date
@@ -3786,7 +3899,6 @@ def assign_station(data: AttendanceAssign):
 
             db.add(attendance)
 
-        # 9. ثبت تاریخچه فقط در صورت تغییر ایستگاه
         if old_station_id != data.station_id:
 
             history = AttendanceHistory(
@@ -3834,7 +3946,6 @@ def get_daily_attendance(
     db = SessionLocal()
 
     try:
-        # 1. بررسی کاربر درخواست‌دهنده
         user = db.query(User).filter(
             User.id == user_id
         ).first()
@@ -3845,22 +3956,18 @@ def get_daily_attendance(
                 detail="User not found"
             )
 
-        # 2. فقط سرپرست مجاز است
         if user.role != "supervisor":
             raise HTTPException(
                 status_code=403,
                 detail="Only supervisors can view attendance"
             )
 
-        # 3. سرپرست فقط خط خودش را مشاهده می‌کند
         if user.line_id != line_id:
             raise HTTPException(
                 status_code=403,
                 detail="You cannot view another line"
             )
 
-        # 4. دریافت همه کارکنان فعال خط
-        # حتی افرادی که هنوز رکورد حضور ندارند
         results = (
             db.query(Employee, DailyAttendance, Station)
             .outerjoin(
@@ -3886,7 +3993,6 @@ def get_daily_attendance(
 
         for employee, attendance, station in results:
 
-            # 5. دریافت مرخصی‌های معتبر کارمند در تاریخ انتخاب‌شده
             leaves = db.query(LeaveRecord).filter(
                 LeaveRecord.employee_id == employee.id,
                 LeaveRecord.start_date <= attendance_date,
@@ -3895,8 +4001,6 @@ def get_daily_attendance(
                 LeaveRecord.created_at.desc()
             ).all()
 
-            # 6. تعیین مرخصی دارای اولویت
-            # اولویت: استعلاجی، روزانه، ساعتی
             leave = None
 
             if leaves:
@@ -3926,7 +4030,6 @@ def get_daily_attendance(
                         None
                     )
 
-            # 7. تعیین وضعیت نهایی کارمند
             if leave:
                 if leave.leave_type == "DAILY":
                     status = "LEAVE_DAILY"
@@ -3950,7 +4053,6 @@ def get_daily_attendance(
             else:
                 status = attendance.status
 
-            # 8. اضافه کردن اطلاعات کارمند به خروجی
             employees.append({
                 "employee_id": employee.id,
                 "personnel_code": employee.personnel_code,
@@ -3972,7 +4074,6 @@ def get_daily_attendance(
                     else None
                 ),
 
-                # اطلاعات مرخصی
                 "leave_id": leave.id if leave else None,
 
                 "leave_type": (
@@ -4008,7 +4109,6 @@ def get_daily_attendance(
                 )
             })
 
-        # 9. خروجی نهایی
         return {
             "success": True,
             "line_id": line_id,
@@ -4039,7 +4139,6 @@ def get_attendance_history(
     db = SessionLocal()
 
     try:
-        # بررسی کاربر
         user = db.query(User).filter(
             User.id == user_id
         ).first()
@@ -4050,14 +4149,12 @@ def get_attendance_history(
                 detail="User not found"
             )
 
-        # فقط سرپرست مجاز است
         if user.role != "supervisor":
             raise HTTPException(
                 status_code=403,
                 detail="Only supervisors can view history"
             )
 
-        # محدودیت مشاهده به خط خود سرپرست
         if user.line_id != line_id:
             raise HTTPException(
                 status_code=403,
@@ -4168,7 +4265,6 @@ def assign_station_bulk(data: AttendanceBulkAssign):
     db = SessionLocal()
 
     try:
-        # 1. بررسی سرپرست
         user = db.query(User).filter(
             User.id == data.user_id
         ).first()
@@ -4191,7 +4287,6 @@ def assign_station_bulk(data: AttendanceBulkAssign):
                 detail="No assignments provided"
             )
 
-        # 2. جلوگیری از ارسال چندباره یک کارمند
         employee_ids = [
             item.employee_id for item in data.assignments
         ]
@@ -4202,7 +4297,6 @@ def assign_station_bulk(data: AttendanceBulkAssign):
                 detail="Duplicate employee IDs are not allowed"
             )
 
-        # 3. بررسی همه تخصیص‌ها قبل از ثبت
         prepared_assignments = []
 
         for item in data.assignments:
@@ -4245,7 +4339,6 @@ def assign_station_bulk(data: AttendanceBulkAssign):
                 (item, employee, station)
             )
 
-        # 4. ثبت همه تخصیص‌ها در یک تراکنش
         changed_count = 0
         unchanged_count = 0
 
@@ -4295,7 +4388,6 @@ def assign_station_bulk(data: AttendanceBulkAssign):
             else:
                 unchanged_count += 1
 
-        # فقط یک بار Commit
         db.commit()
 
         return {
@@ -4826,7 +4918,7 @@ def create_leave(data: LeaveCreate):
                 detail="User not found"
             )
 
-        if user.role != "supervisor":
+        if user.role not in {"supervisor", "support_supervisor"}:
             raise HTTPException(
                 status_code=403,
                 detail="Only supervisors can register leave"
@@ -4844,11 +4936,17 @@ def create_leave(data: LeaveCreate):
                 detail="Employee not found"
             )
 
-        # سرپرست فقط خط خودش
-        if employee.line_id != user.line_id:
+        # Line supervisors can manage only their line; the support supervisor
+        # can manage only employees in the SUPPORT unit.
+        employee_is_in_scope = (
+            employee.unit == "SUPPORT" and employee.line_id is None
+            if user.role == "support_supervisor"
+            else employee.line_id == user.line_id and employee.unit is None
+        )
+        if not employee_is_in_scope:
             raise HTTPException(
                 status_code=403,
-                detail="You cannot manage another line"
+                detail="You cannot manage leave for this employee"
             )
 
         leave_type = data.leave_type.upper().strip()
@@ -5063,6 +5161,84 @@ def get_leaves(
             ]
         }
 
+    finally:
+        db.close()
+
+
+@app.get("/supervisor/support/leave")
+def support_leave_page(request: Request, username: str = Query(...)):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.username == username.strip()).first()
+        if user is None or user.role != "support_supervisor":
+            raise HTTPException(status_code=403, detail="Support supervisor access required")
+        return templates.TemplateResponse(
+            request=request,
+            name="supervisor_support_leave.html",
+            context={
+                "username": user.username,
+                "persian_today": jdatetime.date.fromgregorian(
+                    date=date.today()
+                ).strftime("%Y/%m/%d").translate(
+                    str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+                )
+            },
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
+    finally:
+        db.close()
+
+
+@app.get("/api/support/leave/employees")
+def support_leave_employees(username: str = Query(...)):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.username == username.strip()).first()
+        if user is None or user.role != "support_supervisor":
+            raise HTTPException(status_code=403, detail="Support supervisor access required")
+        employees = db.query(Employee).filter(
+            Employee.unit == "SUPPORT",
+            Employee.line_id.is_(None),
+            Employee.is_active == 1
+        ).order_by(Employee.full_name).all()
+        return [{
+            "id": employee.id,
+            "personnel_code": employee.personnel_code,
+            "full_name": employee.full_name
+        } for employee in employees]
+    finally:
+        db.close()
+
+
+@app.get("/api/support/leave/records")
+def support_leave_records(username: str = Query(...)):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.username == username.strip()).first()
+        if user is None or user.role != "support_supervisor":
+            raise HTTPException(status_code=403, detail="Support supervisor access required")
+        rows = db.query(LeaveRecord, Employee).join(
+            Employee, Employee.id == LeaveRecord.employee_id
+        ).filter(
+            Employee.unit == "SUPPORT",
+            Employee.line_id.is_(None)
+        ).order_by(LeaveRecord.start_date.desc(), LeaveRecord.id.desc()).limit(500).all()
+        return [{
+            "id": leave.id,
+            "employee_id": employee.id,
+            "employee_name": employee.full_name,
+            "personnel_code": employee.personnel_code,
+            "leave_type": leave.leave_type,
+            "start_date": str(leave.start_date),
+            "end_date": str(leave.end_date),
+            "start_time": leave.start_time.strftime("%H:%M") if leave.start_time else None,
+            "end_time": leave.end_time.strftime("%H:%M") if leave.end_time else None,
+            "notes": leave.notes
+        } for leave, employee in rows]
     finally:
         db.close()
 

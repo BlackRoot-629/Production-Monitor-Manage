@@ -203,6 +203,9 @@ async function login() {
         }
 
         sessionStorage.setItem("workflow_username", result.username || username);
+        if (result.id) {
+            sessionStorage.setItem("workflow_user_id", String(result.id));
+        }
 
         // ADMIN
         if (result.role === "admin") {
@@ -254,6 +257,12 @@ async function login() {
                 "?username=" +
                 encodeURIComponent(username);
 
+        }
+
+        else if (result.role === "support_supervisor") {
+            window.location.href =
+                "/supervisor/support/leave?username=" +
+                encodeURIComponent(result.username || username);
         }
 
         // OPERATOR

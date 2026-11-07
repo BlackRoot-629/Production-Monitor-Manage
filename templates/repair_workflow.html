@@ -5,14 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Repair Workflow</title>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:20px;background:#111827;color:#f8fafc;font-family:Arial,Tahoma,sans-serif}.wrap{width:100%;max-width:1900px;margin:auto}h1{margin:4px 0 18px;color:#dbeafe;font-size:26px}.summary{display:flex;gap:12px;margin:0 0 18px}.metric{min-width:180px;background:#1f2937;border:1px solid #374151;border-radius:10px;padding:14px 20px;color:#cbd5e1}.metric strong{display:block;color:#60a5fa;font-size:25px;margin-top:7px}.scanner{width:100%;margin:0 0 18px;padding:14px 16px;border:1px solid #475569;border-radius:9px;background:#0f172a;color:#fff;font-size:19px;outline:none}.scanner:focus{border-color:#3b82f6}.panel{overflow:auto;border:1px solid #334155;border-radius:12px;background:#18212f;margin:0 0 18px}.panel h2{font-size:18px;margin:0;padding:14px 16px;background:#263244;color:#e2e8f0;border-bottom:1px solid #3a4658}table{width:100%;border-collapse:collapse;min-width:900px}th{height:48px;background:#263244;color:#cbd5e1;font-size:14px;text-align:left;padding:12px 16px;white-space:nowrap}td{height:55px;border-top:1px solid #2b3544;padding:10px 16px;color:#f1f5f9;font-size:14px}tbody tr:hover{background:#202c3c}.empty{text-align:center;color:#94a3b8;padding:24px}.actions{white-space:nowrap}button{border:0;border-radius:7px;padding:8px 14px;margin-right:6px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer}button:hover{filter:brightness(1.12)}button.reject{background:#dc2626}button:disabled{opacity:.5;cursor:wait}.tag{display:inline-block;padding:5px 9px;border-radius:14px;background:#172554;color:#bfdbfe}.reason{max-width:300px;white-space:normal;color:#cbd5e1}#message{min-height:24px;margin:8px 0 14px;color:#93c5fd}.error{color:#fca5a5!important}.approved{color:#86efac!important}.returned{color:#fca5a5!important}@media(max-width:700px){body{padding:10px}h1{font-size:21px}.metric{min-width:130px;padding:10px}.summary{flex-wrap:wrap}.scanner{font-size:16px}}
+*{box-sizing:border-box}body{margin:0;padding:20px;background:#111827;color:#f8fafc;font-family:Arial,Tahoma,sans-serif}.wrap{width:100%;max-width:1900px;margin:auto}.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:4px 0 18px}h1{margin:0;color:#dbeafe;font-size:26px}.logout{background:#475569;padding:10px 16px}.summary{display:flex;gap:12px;margin:0 0 18px}.metric{min-width:180px;background:#1f2937;border:1px solid #374151;border-radius:10px;padding:14px 20px;color:#cbd5e1}.metric strong{display:block;color:#60a5fa;font-size:25px;margin-top:7px}.scanner{width:100%;margin:0 0 18px;padding:14px 16px;border:1px solid #475569;border-radius:9px;background:#0f172a;color:#fff;font-size:19px;outline:none}.scanner:focus{border-color:#3b82f6}.panel{overflow:auto;border:1px solid #334155;border-radius:12px;background:#18212f;margin:0 0 18px}.panel h2{font-size:18px;margin:0;padding:14px 16px;background:#263244;color:#e2e8f0;border-bottom:1px solid #3a4658}table{width:100%;border-collapse:collapse;min-width:900px}th{height:48px;background:#263244;color:#cbd5e1;font-size:14px;text-align:left;padding:12px 16px;white-space:nowrap}td{height:55px;border-top:1px solid #2b3544;padding:10px 16px;color:#f1f5f9;font-size:14px}tbody tr:hover{background:#202c3c}.empty{text-align:center;color:#94a3b8;padding:24px}.actions{white-space:nowrap}button{border:0;border-radius:7px;padding:8px 14px;margin-right:6px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer}button:hover{filter:brightness(1.12)}button.reject{background:#dc2626}button:disabled{opacity:.5;cursor:wait}.tag{display:inline-block;padding:5px 9px;border-radius:14px;background:#172554;color:#bfdbfe}.reason{max-width:300px;white-space:normal;color:#cbd5e1}#message{min-height:24px;margin:8px 0 14px;color:#93c5fd}.error{color:#fca5a5!important}.approved{color:#86efac!important}.returned{color:#fca5a5!important}@media(max-width:700px){body{padding:10px}.topbar{align-items:flex-start}h1{font-size:21px}.metric{min-width:130px;padding:10px}.summary{flex-wrap:wrap}.scanner{font-size:16px}}
 </style>
     <link rel="icon" href="/static/favicon.ico" sizes="any">
 
 </head>
 <body>
 <div class="wrap">
+<div class="topbar">
 <h1 id="pageTitle">Repair Workflow</h1>
+<button class="logout" type="button" onclick="logout()">Log Out</button>
+</div>
 <div id="message" role="status"></div>
 <div id="scannerArea"></div>
 <div class="summary" id="summary"></div>
@@ -21,6 +24,7 @@
 <script>
 const role={{ workflow_role|tojson }};
 const username=sessionStorage.getItem('workflow_username')||'';
+function logout(){sessionStorage.clear();window.location.replace('/');}
 let boardGeneration=0;
 let boardData=null;
 let selectedQcSerial=null;

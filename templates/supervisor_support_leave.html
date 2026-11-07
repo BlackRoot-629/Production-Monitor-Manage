@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Support Unit Leave Management</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 24px; background: #0b1220; color: #e5e7eb; font-family: Arial, Tahoma, sans-serif; }
+        .container { max-width: 1100px; margin: auto; }
+        header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; }
+        h1 { margin: 0; color: #60a5fa; font-size: 25px; }
+        .subtitle { color: #94a3b8; margin-top: 7px; }
+        .card { background: #172033; border: 1px solid #273449; border-radius: 14px; padding: 22px; margin-bottom: 20px; }
+        h2 { margin: 0 0 18px; color: #bfdbfe; font-size: 18px; }
+        .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+        label { display: block; margin-bottom: 7px; color: #cbd5e1; font-size: 13px; }
+        input, select, textarea { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid #334155; border-radius: 8px; background: #0f172a; color: white; font: inherit; }
+        input[readonly] { cursor: pointer; direction: rtl; text-align: center; font-family: Tahoma, Arial, sans-serif; }
+        textarea { resize: vertical; }
+        .wide { grid-column: 1 / -1; }
+        button { min-height: 42px; border: 0; border-radius: 8px; padding: 10px 18px; background: #2563eb; color: white; font-weight: 700; cursor: pointer; }
+        button:disabled { opacity: .55; cursor: wait; }
+        .secondary { background: #334155; }
+        #message { display: none; margin-bottom: 16px; padding: 12px 15px; border-radius: 8px; }
+        #message.success { display: block; background: #052e24; color: #86efac; }
+        #message.error { display: block; background: #450a0a; color: #fecaca; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 760px; }
+        th, td { padding: 12px 10px; border-bottom: 1px solid #334155; text-align: left; }
+        th { color: #bfdbfe; background: #111c30; }
+        .badge { display: inline-block; padding: 5px 9px; border-radius: 20px; background: #312e81; color: #c7d2fe; font-size: 12px; }
+        .empty { padding: 22px; text-align: center; color: #94a3b8; }
+        .datepicker-container { z-index: 5000 !important; direction: rtl !important; }
+        .datepicker-plot-area {
+            width: 320px !important;
+            max-width: calc(100vw - 24px) !important;
+            direction: rtl !important;
+            font-family: Tahoma, Arial, sans-serif !important;
+        }
+        .datepicker-plot-area .datepicker-day-view,
+        .datepicker-plot-area .month-grid-box,
+        .datepicker-plot-area .datepicker-grid-view { width: 100% !important; }
+        @media (max-width: 760px) { body { padding: 13px; } header { align-items: flex-start; } h1 { font-size: 21px; } .grid { grid-template-columns: 1fr; } .wide { grid-column: auto; } }
+    </style>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+</head>
+<body>
+<main class="container">
+    <header>
+        <div>
+            <h1>Support Unit Leave Management</h1>
+            <div class="subtitle">Register and review leave for Support employees</div>
+        </div>
+        <button class="secondary" type="button" onclick="loadPage()">Refresh</button>
+    </header>
+
+    <div id="message" role="status" aria-live="polite"></div>
+
+    <section class="card">
+        <h2>Register Leave</h2>
+        <form id="leaveForm">
+            <div class="grid">
+                <div>
+                    <label for="employee">Employee</label>
+                    <select id="employee" required><option value="">Loading employees...</option></select>
+                </div>
+                <div>
+                    <label for="leaveType">Leave Type</label>
+                    <select id="leaveType" required>
+                        <option value="DAILY">Daily Leave</option>
+                        <option value="HOURLY">Hourly Leave</option>
+                        <option value="SICK">Sick Leave</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="startDate">Start Date (Persian calendar)</label>
+                    <input id="startDate" type="text" value="{{ persian_today }}" readonly required placeholder="Select date">
+                </div>
+                <div id="endDateField" hidden>
+                    <label for="endDate">End Date (Persian calendar)</label>
+                    <input id="endDate" type="text" value="{{ persian_today }}" readonly placeholder="Select date">
+                </div>
+                <div id="startTimeField" hidden>
+                    <label for="startTime">Start Time</label>
+                    <input id="startTime" type="time">
+                </div>
+                <div id="endTimeField" hidden>
+                    <label for="endTime">End Time</label>
+                    <input id="endTime" type="time">
+                </div>
+                <div>
+                    <label for="leaveReason">Leave / Absence Reason</label>
+                    <select id="leaveReason" required>
+                        <option value="">Select reason</option>
+                        <option value="Personal">Personal</option>
+                        <option value="Medical">Medical</option>
+                        <option value="Family emergency">Family emergency</option>
+                        <option value="Official duty">Official duty</option>
+                        <option value="Unpaid leave">Unpaid leave</option>
+                        <option value="Unexcused absence">Unexcused absence</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="wide">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" rows="2" maxlength="500" placeholder="Optional notes"></textarea>
+                </div>
+                <div class="wide">
+                    <button id="submitButton" type="submit">Register Leave</button>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Support Unit Leave Records</h2>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Employee</th><th>Personnel Code</th><th>Type</th><th>Start Date</th><th>End Date</th><th>Time</th><th>Notes</th></tr></thead>
+                <tbody id="records"><tr><td class="empty" colspan="7">Loading records...</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+<script>
+const username = new URLSearchParams(window.location.search).get("username") || "";
+const userId = Number(sessionStorage.getItem("workflow_user_id"));
+let startGregorian = null;
+let endGregorian = null;
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    })[char]);
+}
+
+function normalizeDigits(value) {
+    return String(value ?? "")
+        .replace(/[۰-۹]/g, digit => "۰۱۲۳۴۵۶۷۸۹".indexOf(digit))
+        .replace(/[٠-٩]/g, digit => "٠١٢٣٤٥٦٧٨٩".indexOf(digit));
+}
+
+function toGregorian(unixDate) {
+    return normalizeDigits(
+        new persianDate(unixDate)
+            .toCalendar("gregorian")
+            .toLocale("en")
+            .format("YYYY-MM-DD")
+    );
+}
+
+function persianDisplay(value) {
+    const match = normalizeDigits(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return value || "-";
+    const date = new persianDate(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12));
+    return date.toCalendar("persian").toLocale("fa").format("YYYY/MM/DD");
+}
+
+function formatPickerDate(unixDate) {
+    return new persianDate(unixDate)
+        .toCalendar("persian")
+        .toLocale("fa")
+        .format("YYYY/MM/DD");
+}
+
+function showMessage(text, type = "success") {
+    const box = document.getElementById("message");
+    box.textContent = text;
+    box.className = type;
+    window.clearTimeout(showMessage.timer);
+    showMessage.timer = window.setTimeout(() => { box.className = ""; box.textContent = ""; }, 5000);
+}
+
+async function request(url, options = {}) {
+    const response = await fetch(url, options);
+    let result;
+    try {
+        result = await response.json();
+    } catch {
+        throw new Error(`Server returned an unreadable response (${response.status}).`);
+    }
+    if (!response.ok) {
+        const detail = result.detail;
+        const message = Array.isArray(detail)
+            ? detail.map(item => item.msg || item.message || JSON.stringify(item)).join("; ")
+            : detail && typeof detail === "object"
+                ? (detail.message || JSON.stringify(detail))
+                : detail;
+        throw new Error(message || result.error || `Request failed (${response.status})`);
+    }
+    return result;
+}
+
+function setupDates() {
+    if (!window.persianDate || !window.jQuery || !jQuery.fn.persianDatepicker) {
+        throw new Error("Persian calendar could not be loaded. Check the network connection and refresh.");
+    }
+    const today = new persianDate().toCalendar("gregorian");
+    startGregorian = normalizeDigits(
+        today.toLocale("en").format("YYYY-MM-DD")
+    );
+    endGregorian = startGregorian;
+    $("#startDate").persianDatepicker({
+        calendarType: "persian", format: "YYYY/MM/DD", formatter: formatPickerDate,
+        initialValue: false, initialValueType: "persian", autoClose: true, position: "auto",
+        calendar: { persian: { locale: "fa", leapYearMode: "astronomical" }, gregorian: { locale: "en", showHint: false } },
+        toolbox: { calendarSwitch: { enabled: false }, todayButton: { enabled: true, text: { fa: "امروز", en: "Today" } } },
+        onSelect: unixDate => {
+            startGregorian = toGregorian(unixDate);
+            $("#startDate").val(persianDisplay(startGregorian));
+            if (!endGregorian || endGregorian < startGregorian) {
+                endGregorian = startGregorian;
+                $("#endDate").val(persianDisplay(endGregorian));
+            }
+        }
+    });
+    $("#endDate").persianDatepicker({
+        calendarType: "persian", format: "YYYY/MM/DD", formatter: formatPickerDate,
+        initialValue: false, initialValueType: "persian", autoClose: true, position: "auto",
+        calendar: { persian: { locale: "fa", leapYearMode: "astronomical" }, gregorian: { locale: "en", showHint: false } },
+        toolbox: { calendarSwitch: { enabled: false }, todayButton: { enabled: true, text: { fa: "امروز", en: "Today" } } },
+        onSelect: unixDate => {
+            endGregorian = toGregorian(unixDate);
+            $("#endDate").val(persianDisplay(endGregorian));
+        }
+    });
+    $("#startDate").val(persianDisplay(startGregorian));
+    $("#endDate").val(persianDisplay(endGregorian));
+}
+
+function updateLeaveFields() {
+    const type = document.getElementById("leaveType").value;
+    document.getElementById("endDateField").hidden = type !== "SICK";
+    document.getElementById("startTimeField").hidden = type !== "HOURLY";
+    document.getElementById("endTimeField").hidden = type !== "HOURLY";
+    document.getElementById("startTime").required = type === "HOURLY";
+    document.getElementById("endTime").required = type === "HOURLY";
+}
+
+async function loadEmployees() {
+    const employees = await request(`/api/support/leave/employees?username=${encodeURIComponent(username)}`);
+    const select = document.getElementById("employee");
+    select.innerHTML = '<option value="">Select employee</option>' + employees.map(employee =>
+        `<option value="${employee.id}">${escapeHtml(employee.full_name)} (${escapeHtml(employee.personnel_code)})</option>`
+    ).join("");
+    if (!employees.length) select.innerHTML = '<option value="">No active support employees</option>';
+}
+
+async function loadRecords() {
+    const rows = await request(`/api/support/leave/records?username=${encodeURIComponent(username)}`);
+    const body = document.getElementById("records");
+    if (!rows.length) {
+        body.innerHTML = '<tr><td class="empty" colspan="7">No support leave records found.</td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map(row => {
+        const type = { DAILY: "Daily Leave", HOURLY: "Hourly Leave", SICK: "Sick Leave" }[row.leave_type] || row.leave_type;
+        const time = row.leave_type === "HOURLY" ? `${row.start_time || "-"} – ${row.end_time || "-"}` : "—";
+        return `<tr><td>${escapeHtml(row.employee_name)}</td><td>${escapeHtml(row.personnel_code)}</td><td><span class="badge">${escapeHtml(type)}</span></td><td>${escapeHtml(persianDisplay(row.start_date))}</td><td>${escapeHtml(persianDisplay(row.end_date))}</td><td>${escapeHtml(time)}</td><td>${escapeHtml(row.notes || "—")}</td></tr>`;
+    }).join("");
+}
+
+async function loadPage() {
+    try {
+        if (!username || !userId) throw new Error("Please log in again to continue.");
+        await Promise.all([loadEmployees(), loadRecords()]);
+    } catch (error) {
+        showMessage(error.message, "error");
+    }
+}
+
+document.getElementById("leaveType").addEventListener("change", updateLeaveFields);
+document.getElementById("leaveForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const type = document.getElementById("leaveType").value;
+    const startTime = document.getElementById("startTime").value;
+    const endTime = document.getElementById("endTime").value;
+    if (!startGregorian || (type === "SICK" && (!endGregorian || endGregorian < startGregorian))) {
+        showMessage("Select a valid date range.", "error");
+        return;
+    }
+    if (type === "HOURLY" && (!startTime || !endTime || startTime >= endTime)) {
+        showMessage("Enter a valid time range.", "error");
+        return;
+    }
+    const button = document.getElementById("submitButton");
+    button.disabled = true;
+    try {
+        await request("/api/attendance/leaves", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                user_id: userId,
+                employee_id: Number(document.getElementById("employee").value),
+                leave_type: type,
+                start_date: startGregorian,
+                end_date: type === "SICK" ? endGregorian : startGregorian,
+                start_time: type === "HOURLY" ? startTime : null,
+                end_time: type === "HOURLY" ? endTime : null,
+                notes: [`Reason: ${document.getElementById("leaveReason").value}`, document.getElementById("notes").value.trim()].filter(Boolean).join(" — ").slice(0, 500)
+            })
+        });
+        showMessage("Leave registered successfully.");
+        document.getElementById("leaveForm").reset();
+        endGregorian = startGregorian;
+        $("#startDate").val(persianDisplay(startGregorian));
+        $("#endDate").val(persianDisplay(endGregorian));
+        updateLeaveFields();
+        await loadRecords();
+    } catch (error) {
+        showMessage(error.message, "error");
+    } finally {
+        button.disabled = false;
+    }
+});
+
+try { setupDates(); } catch (error) { showMessage(error.message, "error"); }
+updateLeaveFields();
+loadPage();
+</script>
+</body>
+</html>

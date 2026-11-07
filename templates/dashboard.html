@@ -1315,6 +1315,14 @@ body {
 .personnel-table tbody tr:hover {
     background: rgba(35,125,205,.08);
 }
+.personnel-table tbody tr.repair-sla-overdue > td {
+    background: rgba(185, 28, 28, .42);
+    color: #fff1f2;
+    border-top-color: rgba(248, 113, 113, .55);
+}
+.personnel-table tbody tr.repair-sla-overdue > td:first-child {
+    box-shadow: inset -4px 0 #ef4444;
+}
 .personnel-pill {
     display: inline-block;
     padding: 4px 8px;
@@ -2815,6 +2823,20 @@ function formatRepairSolarNow() {
     return formatRepairTime(new Date());
 }
 
+function repairExceededExitSla(row) {
+    const queueTimes = (row.repair_queue_times || [])
+        .map(value => new Date(value).getTime())
+        .filter(Number.isFinite);
+    if (!queueTimes.length) return false;
+
+    const firstQueueTime = Math.min(...queueTimes);
+    const exitTimes = (row.exit_queue_times || [])
+        .map(value => new Date(value).getTime())
+        .filter(value => Number.isFinite(value) && value >= firstQueueTime);
+    const firstExitTime = exitTimes.length ? Math.min(...exitTimes) : Date.now();
+    return firstExitTime - firstQueueTime > 48 * 60 * 60 * 1000;
+}
+
 async function loadRepairTimeline() {
     if (repairDashboardLoading) return;
     const adminUsername = sessionStorage.getItem("attendance_admin_username");
@@ -2864,7 +2886,7 @@ function renderRepairTimeline() {
         return;
     }
     const times = values => values?.length ? values.map(formatRepairTime).map(repairEscape).join("<br>") : "Not found";
-    tbody.innerHTML = filtered.map(row => `<tr><td>${repairEscape(row.serial_number)}</td><td>${repairEscape(row.line_name)}</td><td>${times(row.repair_queue_times)}</td><td>${times(row.repair_started_times)}</td><td>${times(row.sent_to_qc_times)}</td><td>${times(row.exit_queue_times)}</td><td>${times(row.returned_to_line_times)}</td></tr>`).join("");
+    tbody.innerHTML = filtered.map(row => `<tr class="${repairExceededExitSla(row) ? "repair-sla-overdue" : ""}"><td>${repairEscape(row.serial_number)}</td><td>${repairEscape(row.line_name)}</td><td>${times(row.repair_queue_times)}</td><td>${times(row.repair_started_times)}</td><td>${times(row.sent_to_qc_times)}</td><td>${times(row.exit_queue_times)}</td><td>${times(row.returned_to_line_times)}</td></tr>`).join("");
 }
 
 setInterval(() => {

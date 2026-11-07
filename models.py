@@ -41,6 +41,7 @@ class OrderCode(Base):
     order_code = Column(String(10), unique=True)
 
     product_type = Column(String(20))   
+    target_quantity = Column(Integer, nullable=False, default=0, server_default=text("0"))
 
 class Serial(Base):
 
@@ -192,9 +193,6 @@ class AssemblyWorkflowHistory(Base):
     note = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
 
-# ==============================
-# ATTENDANCE MODULE
-# ==============================
 
 class Employee(Base):
 

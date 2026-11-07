@@ -631,6 +631,7 @@
                     <div class="field"><label>End Date</label><input id="personnelLeaveEnd" type="date"></div>
                     <div class="field" id="personnelLeaveStartTimeField" style="display:none"><label>Start Time</label><input id="personnelLeaveStartTime" type="time"></div>
                     <div class="field" id="personnelLeaveEndTimeField" style="display:none"><label>End Time</label><input id="personnelLeaveEndTime" type="time"></div>
+                    <div class="field"><label for="personnelLeaveReason">Leave / Absence Reason</label><select id="personnelLeaveReason" required><option value="">Select reason</option><option value="Personal">Personal</option><option value="Medical">Medical</option><option value="Family emergency">Family emergency</option><option value="Official duty">Official duty</option><option value="Unpaid leave">Unpaid leave</option><option value="Unexcused absence">Unexcused absence</option><option value="Other">Other</option></select></div>
                     <div class="field"><label>Notes</label><input id="personnelLeaveNotes" maxlength="500"></div>
                 </div>
                 <button class="btn-primary" id="personnelLeaveSubmit" type="submit">ADD LEAVE</button>
@@ -900,7 +901,7 @@ document.getElementById("personnelLeaveForm").addEventListener("submit", async f
         end_date: endDate,
         start_time: type === "HOURLY" ? document.getElementById("personnelLeaveStartTime").value : null,
         end_time: type === "HOURLY" ? document.getElementById("personnelLeaveEndTime").value : null,
-        notes: document.getElementById("personnelLeaveNotes").value.trim() || null
+        notes: [`Reason: ${document.getElementById("personnelLeaveReason").value}`, document.getElementById("personnelLeaveNotes").value.trim()].filter(Boolean).join(" — ").slice(0, 500)
     };
     button.disabled = true;
     try {

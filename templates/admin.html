@@ -192,6 +192,21 @@ Admin Panel
 
     <div
         class="card"
+        onclick="location.href='/admin/order-code-progress?admin_username='+encodeURIComponent(sessionStorage.getItem('attendance_admin_username')||'')"
+    >
+
+        <div class="icon">
+            📦
+        </div>
+
+        <div class="title">
+            Packing Order Progress
+        </div>
+
+    </div>
+
+    <div
+        class="card"
         onclick="location.href='/admin/export'"
     >
 

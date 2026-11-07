@@ -28,6 +28,12 @@ class OrderCodeCreate(BaseModel):
 
     product_type: str
 
+    target_quantity: int
+
+
+class OrderCodeUpdate(BaseModel):
+    target_quantity: int
+
 class UserCreate(BaseModel):
 
     username: str
@@ -175,3 +181,5 @@ class AdminLeaveCreate(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
     notes: str | None = None
+
+

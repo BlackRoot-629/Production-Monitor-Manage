@@ -585,6 +585,20 @@
                     >
                 </div>
 
+                <div class="field leave-notes">
+                    <label for="leaveReason">Leave / Absence Reason</label>
+                    <select id="leaveReason" required>
+                        <option value="">Select reason</option>
+                        <option value="Personal">Personal</option>
+                        <option value="Medical">Medical</option>
+                        <option value="Family emergency">Family emergency</option>
+                        <option value="Official duty">Official duty</option>
+                        <option value="Unpaid leave">Unpaid leave</option>
+                        <option value="Unexcused absence">Unexcused absence</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
             </div>
 
             <div class="field leave-notes">
@@ -1273,7 +1287,7 @@
             end_date: endDate,
             start_time: leaveType === "HOURLY" ? startTime : null,
             end_time: leaveType === "HOURLY" ? endTime : null,
-            notes: notes || null
+            notes: [`Reason: ${document.getElementById("leaveReason").value}`, notes].filter(Boolean).join(" — ").slice(0, 500)
         };
 
         button.disabled = true;

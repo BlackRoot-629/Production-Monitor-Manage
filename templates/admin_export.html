@@ -94,6 +94,12 @@ button{
     color:white;
 }
 
+.export_leaves{
+    margin-top:15px;
+    background:#0d9488;
+    color:white;
+}
+
 .back{
 
     margin-top:15px;
@@ -174,6 +180,13 @@ Download Line Stop Report
     onclick="downloadAdminExport('/api/export/repair-dashboard')"
 >
 Download Repair Serial Timeline
+</button>
+
+<button
+    class="export_leaves"
+    onclick="downloadAdminExport('/api/export/personnel-leaves')"
+>
+Download All Personnel Leave Records
 </button>
 
 

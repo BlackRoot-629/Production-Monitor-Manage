@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Packing Order Progress</title>
+    <style>
+        :root { color-scheme: dark; --bg:#0b1220; --panel:#172033; --line:#2c3a50; --muted:#94a3b8; --blue:#60a5fa; --green:#4ade80; --amber:#fbbf24; }
+        * { box-sizing: border-box; }
+        body { margin:0; padding:24px; background:var(--bg); color:#e5e7eb; font-family:Arial,Tahoma,sans-serif; }
+        main { max-width:1500px; margin:auto; }
+        header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:22px; }
+        h1 { margin:0; color:#dbeafe; font-size:30px; }
+        .sub { color:var(--muted); margin-top:7px; }
+        button { border:0; border-radius:8px; padding:11px 17px; background:#2563eb; color:#fff; font-weight:700; cursor:pointer; }
+        .summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
+        .metric, .table-card { background:var(--panel); border:1px solid var(--line); border-radius:12px; }
+        .metric { padding:17px 20px; color:#bfdbfe; }
+        .metric strong { display:block; margin-top:7px; font-size:30px; color:var(--blue); }
+        .table-card { overflow:auto; }
+        table { width:100%; min-width:1000px; border-collapse:collapse; }
+        th,td { padding:14px 13px; border-bottom:1px solid #2b3544; text-align:left; white-space:nowrap; }
+        th { background:#202c3d; color:#cbd5e1; }
+        .status { display:inline-block; padding:6px 10px; border-radius:18px; font-weight:700; }
+        .complete { background:#052e24; color:var(--green); }
+        .progress { background:#422006; color:var(--amber); }
+        .pending { background:#1e293b; color:#cbd5e1; }
+        .bar { width:140px; height:9px; overflow:hidden; border-radius:8px; background:#334155; }
+        .bar span { display:block; height:100%; background:var(--blue); }
+        .empty { text-align:center; color:var(--muted); padding:30px; }
+        #message { margin:10px 0; color:#fca5a5; }
+        @media(max-width:650px) { body { padding:13px; } header { align-items:flex-start; flex-direction:column; } h1 { font-size:24px; } .summary { grid-template-columns:1fr; } }
+    </style>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+</head>
+<body>
+<main>
+    <header>
+        <div><h1>Packing Order Progress</h1><div class="sub">Total pack scans per order code compared with its target quantity</div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button type="button" onclick="loadProgress()">Refresh</button>
+            <button type="button" style="background:#334155" onclick="location.href='/admin'">Back to Admin</button>
+        </div>
+    </header>
+    <div id="message" role="status"></div>
+    <section id="summary" class="summary"></section>
+    <div class="table-card">
+        <table>
+            <thead><tr><th>Order Code</th><th>Product Type</th><th>Packed Quantity</th><th>Target Quantity</th><th>Remaining</th><th>Progress</th><th>Status</th></tr></thead>
+            <tbody id="rows"><tr><td class="empty" colspan="7">Loading…</td></tr></tbody>
+        </table>
+    </div>
+</main>
+<script>
+const adminUsername = {{ admin_username|tojson }};
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[char]);
+}
+
+function responseError(payload, status) {
+    const detail = payload?.detail;
+    if (Array.isArray(detail)) {
+        return detail.map(item => item.msg || item.message || JSON.stringify(item)).join("; ");
+    }
+    if (detail && typeof detail === "object") return detail.message || JSON.stringify(detail);
+    return detail || payload?.error || `Request failed (${status})`;
+}
+
+async function loadProgress() {
+    const message = document.getElementById("message");
+    if (!adminUsername) {
+        message.textContent = "Admin session not found. Please log in again.";
+        return;
+    }
+    try {
+        const response = await fetch(`/api/admin/order-code-progress?admin_username=${encodeURIComponent(adminUsername)}`, { cache:"no-store" });
+        const raw = await response.text();
+        let result;
+        try {
+            result = JSON.parse(raw);
+        } catch {
+            throw new Error(`Server returned HTTP ${response.status}: ${raw.slice(0, 240) || "empty response"}`);
+        }
+        if (!response.ok) throw new Error(responseError(result, response.status));
+        renderProgress(result);
+        message.textContent = "";
+    } catch (error) {
+        message.textContent = error.message || "Could not load packing progress.";
+    }
+}
+
+function renderProgress(items) {
+    const active = items.filter(item => item.packed_quantity > 0);
+    const completed = items.filter(item => item.complete).length;
+    const inProgress = active.filter(item => !item.complete).length;
+    document.getElementById("summary").innerHTML = `
+        <article class="metric">Order codes with pack scans<strong>${active.length}</strong></article>
+        <article class="metric">Targets reached<strong>${completed}</strong></article>
+        <article class="metric">In progress<strong>${inProgress}</strong></article>`;
+
+    const body = document.getElementById("rows");
+    if (!items.length) {
+        body.innerHTML = '<tr><td class="empty" colspan="7">No order codes found.</td></tr>';
+        return;
+    }
+    body.innerHTML = items.map(item => {
+        const target = Number(item.target_quantity || 0);
+        const packed = Number(item.packed_quantity || 0);
+        const percent = target > 0 ? Math.min(100, Math.round(packed * 100 / target)) : 0;
+        const complete = Boolean(item.complete);
+        const status = target < 1 ? "Target not set" : complete ? "Complete" : packed > 0 ? "In Progress" : "Not Started";
+        const statusClass = complete ? "complete" : packed > 0 ? "progress" : "pending";
+        return `<tr>
+            <td>${escapeHtml(item.order_code)}</td><td>${escapeHtml(item.product_type)}</td>
+            <td>${packed}</td><td>${target || "—"}</td><td>${target ? Number(item.remaining_quantity || 0) : "—"}</td>
+            <td><div class="bar"><span style="width:${percent}%"></span></div>${percent}%</td>
+            <td><span class="status ${statusClass}">${status}</span></td>
+        </tr>`;
+    }).join("");
+}
+
+loadProgress();
+setInterval(loadProgress, 5000);
+</script>
+</body>
+</html>

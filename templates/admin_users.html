@@ -138,6 +138,10 @@ td{
                     Supervisor
                 </option>
 
+                <option value="support_supervisor">
+                    Support Production Supervisor
+                </option>
+
                 <option value="dashboard">
                     Dashboard
                 </option>
@@ -259,6 +263,10 @@ async function loadUsers(){
                         ${user.role==="supervisor"?"selected":""}
                     >
                         supervisor
+                    </option>
+
+                    <option value="support_supervisor" ${user.role==="support_supervisor"?"selected":""}>
+                        support supervisor
                     </option>
 
                     <option

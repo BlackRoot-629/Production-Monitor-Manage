@@ -54,6 +54,29 @@ h1 {
 }
 #breakAlert.active { display: block; }
 
+#exitQueueAlert {
+    display: none;
+    margin: 8px 0 14px;
+    padding: 14px 20px;
+    border: 2px solid #f59e0b;
+    border-radius: 14px;
+    background: linear-gradient(135deg,#fef3c7,#fbbf24);
+    color: #422006;
+    text-align: center;
+    font-size: clamp(24px,3vw,42px);
+    font-weight: 900;
+    box-shadow: 0 0 28px rgba(245,158,11,.4);
+}
+#exitQueueAlert.active { display: block; }
+#exitQueueCounts {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    font-size: clamp(18px,2vw,28px);
+}
+
 .row {
 
     display: flex;
@@ -173,6 +196,12 @@ h1 {
 </div>
 
 <div id="breakAlert" aria-live="assertive"></div>
+<div id="exitQueueAlert" role="status" aria-live="polite">
+    QC APPROVED — WAITING FOR RETURN TO ASSEMBLY
+    <div id="exitQueueCounts">
+        <span id="lineExitQueueCount">\Product to return: 0</span>
+    </div>
+</div>
 <div class="row">
 
     <div class="card">
@@ -536,14 +565,34 @@ function updateBreakAlert(teaTime, lunchTime) {
     }
 }
 
+async function loadExitQueueCount() {
+    try {
+        const response = await fetch(
+            "/api/assembly/exit-queue/{{ line_id }}",
+            { cache: "no-store" }
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        const count = Number(data.line_count || 0);
+        document.getElementById("lineExitQueueCount").innerText =
+            `This line: ${count}`;
+        document.getElementById("exitQueueAlert").classList.toggle("active", count > 0);
+    } catch (error) {
+        console.error("Exit queue count error:", error);
+    }
+}
+
 
 loadData();
+loadExitQueueCount();
 
 
 setInterval(
     loadData,
     5000
 );
+
+setInterval(loadExitQueueCount, 3000);
 
 
 </script>
